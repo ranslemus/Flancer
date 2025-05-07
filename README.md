@@ -14,4 +14,15 @@ npm commands
 npm create vite
 npm install
 npm run dev
-cd D:\college\Flancer\flancer
+cd ___
+
+npm install @radix-ui/react-primitive
+npm install lucide-react
+
+npx shadcn-ui@latest init
+npx shadcn-ui@latest add button card
+
+
+npm install --save-dev @types/node
+
+
