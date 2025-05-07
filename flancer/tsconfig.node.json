@@ -6,12 +6,18 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
+    "baseUrl": "./src",  // Use the base "src" folder for the backend too
+    "paths": {
+      "@/*": ["*"]  // Alias "@" works similarly here
+    },
+
     /* Bundler mode */
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "esModuleInterop": true,
 
     /* Linting */
     "strict": true,
@@ -21,5 +27,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "src/**/*"],
+  "exclude": ["node_modules"]
 }

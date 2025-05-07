@@ -2,13 +2,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Briefcase,
-  Cube3D,
   FileText,
   LayoutDashboard,
   Lightbulb,
   MessageSquare,
 } from "lucide-react";
-import React from "react";
+
+import './styles/tailwind.css'; // Import the CSS file correctly
+
 
 export default function MainPage() {
   // Navigation menu items
@@ -52,7 +53,6 @@ export default function MainPage() {
         </div>
       ),
     },
-    { title: "3D Artist", icon: <Cube3D className="w-[55px] h-[55px]" /> },
     {
       title: "UI/UX Designer",
       icon: <LayoutDashboard className="w-[58px] h-[58px]" />,
