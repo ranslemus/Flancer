@@ -21,6 +21,8 @@ git push origin master
 
 npm commands
 
+npm install -g typescript
+
 npm create vite
 
 npm install
@@ -30,5 +32,7 @@ npm run dev
 cd ___
 
 npm install --save-dev @types/node
+
+Remove-Item -Recurse -Force node_modules
 
 

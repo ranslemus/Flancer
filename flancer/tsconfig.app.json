@@ -2,26 +2,21 @@
   "compilerOptions": {
     "baseUrl": "./src",  // The base directory to resolve non-relative imports
     "paths": {
-      "@/*": ["*"] // Alias "@" to refer to the "src" directory
+      "@/*": ["*"]  // Alias "@" to refer to the "src" directory
     },
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ESNext",
     "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
+    "module": "Node16",
     "skipLibCheck": true,
-
     "esModuleInterop": true,
-
-    /* Bundler mode */
-    "moduleResolution": "node16",
+    "moduleResolution": "node16",  // Ensures ES module compatibility
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "jsx": "react-jsx",
-
-    /* Linting */
+    "jsx": "react-jsx",  // React JSX transformation (for React 17+)
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
