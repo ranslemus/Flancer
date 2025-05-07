@@ -5,11 +5,12 @@
     { "path": "./tsconfig.node.json" }
   ],
   "compilerOptions": {
-    "baseUrl": "./src", // This sets the root for relative imports
+    "baseUrl": "./src",                  // This sets the root for relative imports
     "paths": {
-      "@/*": ["*"] // This tells TypeScript that @ maps to /src
+      "@/*": ["src/*"]                   // This should map '@' to the 'src' directory
     },
-    "jsx": "react-jsx",  // If using React 17+
-    "moduleResolution": "node"  // To ensure module resolution works
+    "jsx": "react-jsx",                  // React 17+ JSX support
+    "moduleResolution": "node"           // Ensures node-style resolution for modules
   }
 }
+

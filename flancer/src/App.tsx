@@ -114,7 +114,8 @@ export default function MainPage() {
         <header className="w-full h-[97px] bg-[#133e87] flex items-center justify-between px-9">
           <div className="flex items-center gap-16">
             <h1 className="font-extrabold text-white text-[64px] tracking-[0]">
-              LOGO
+            <img src="/images/flancer_logo_logoOnly.png" alt="Flancer Logo" class="w-22 h-22 rounded-full object-cover"/>
+
             </h1>
             <nav className="flex gap-10">
               {navItems.map((item, index) => (
