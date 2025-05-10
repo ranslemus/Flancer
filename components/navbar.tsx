@@ -10,6 +10,7 @@ import { Search, Menu, X, Bell } from "lucide-react"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import Logo from '../components/logo'; // Adjust the path if needed
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -21,7 +22,7 @@ export default function Navbar() {
   const routes = [
     { href: "/", label: "Home" },
     { href: "/services", label: "Browse Services" },
-    { href: "/freelancers", label: "Find Freelancers" },
+    { href: "/find-freelancers", label: "Find Freelancers" },
     { href: "/how-it-works", label: "How It Works" },
   ]
 
@@ -30,7 +31,7 @@ export default function Navbar() {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-2 md:gap-6">
           <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl font-bold text-primary">Flancer</span>
+            <Logo />
           </Link>
 
           <nav className="hidden md:flex gap-6">
@@ -93,10 +94,10 @@ export default function Navbar() {
           ) : (
             <div className="flex items-center gap-2">
               <Button variant="ghost" asChild>
-                <Link href="/login">Login</Link>
+                <Link href="/auth/login">Login</Link>
               </Button>
               <Button asChild>
-                <Link href="/signup">Sign Up</Link>
+                <Link href="/auth/register">Sign Up</Link>
               </Button>
             </div>
           )}

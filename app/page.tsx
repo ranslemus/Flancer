@@ -53,9 +53,9 @@ export default function Home() {
             </div>
             <div className="flex items-center justify-center">
               <Image
-                src="/placeholder.svg?height=500&width=500"
-                width={500}
-                height={500}
+                src="/heroImage.webp"
+                width={650}
+                height={6500}
                 alt="Hero Image"
                 className="rounded-lg object-cover"
               />
