@@ -11,20 +11,55 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Github } from "lucide-react"
+import { signIn } from "@/lib/supabase/actions"
+import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const supabase = createClient()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
+    setFormError(null)
 
-    // Simulate API call
-    setTimeout(() => {
+    const formData = new FormData(e.currentTarget)
+    const result = await signIn(formData)
+
+    if (result?.error) {
+      setFormError(result.error)
       setIsLoading(false)
-      router.push("/dashboard")
-    }, 1500)
+      toast({
+        variant: "destructive",
+        title: "Authentication failed",
+        description: result.error,
+      })
+    }
+    // No need to handle success case as the action redirects to dashboard
+  }
+
+  const handleGithubSignIn = async () => {
+    setIsLoading(true)
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+      },
+    })
+
+    if (error) {
+      setFormError(error.message)
+      setIsLoading(false)
+      toast({
+        variant: "destructive",
+        title: "Authentication failed",
+        description: error.message,
+      })
+    }
   }
 
   return (
@@ -65,9 +100,12 @@ export default function LoginPage() {
                 <CardDescription>Enter your email and password to sign in to your account</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {formError && (
+                  <div className="p-3 bg-destructive/15 text-destructive text-sm rounded-md">{formError}</div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="john@example.com" required />
+                  <Input id="email" name="email" type="email" placeholder="john@example.com" required />
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -76,10 +114,10 @@ export default function LoginPage() {
                       Forgot password?
                     </Link>
                   </div>
-                  <Input id="password" type="password" required />
+                  <Input id="password" name="password" type="password" required />
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="remember" />
+                  <Checkbox id="remember" name="remember" />
                   <label
                     htmlFor="remember"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -100,7 +138,13 @@ export default function LoginPage() {
                     <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
                   </div>
                 </div>
-                <Button variant="outline" type="button" className="w-full">
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="w-full"
+                  onClick={handleGithubSignIn}
+                  disabled={isLoading}
+                >
                   <Github className="mr-2 h-4 w-4" />
                   GitHub
                 </Button>
