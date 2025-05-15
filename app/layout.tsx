@@ -1,5 +1,7 @@
-import type React from "react"
-import type { Metadata } from "next"
+'use client'
+
+import React from "react"
+import { usePathname } from "next/navigation"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -8,17 +10,15 @@ import Footer from "@/components/footer"
 
 const inter = Inter({ subsets: ["latin"] })
 
-export const metadata: Metadata = {
-  title: "Flancer - Platform for Emerging Tech Freelancers",
-  description: "Connect with clients and build your portfolio as a new developer",
-    generator: 'v0.dev'
-}
-
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
+  // Panggil usePathname DI DALAM komponen (RootLayout)
+  const pathname = usePathname()
+  const hideFooter = pathname === "/auth/login" || pathname === "/auth/register"
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
@@ -26,7 +26,7 @@ export default function RootLayout({
           <div className="flex min-h-screen flex-col">
             <Navbar />
             <main className="flex-1">{children}</main>
-            <Footer />
+            {!hideFooter && <Footer />}
           </div>
         </ThemeProvider>
       </body>
