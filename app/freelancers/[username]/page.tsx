@@ -9,9 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
-import { Calendar, Edit, ExternalLink, Github, Globe, Linkedin, Mail, MapPin, Star, Twitter } from 'lucide-react'
+import { Calendar, ExternalLink, Github, Globe, Linkedin, Mail, MapPin, Star, Twitter } from 'lucide-react'
 
-// Mock user data - in a real app, this would come from your database
+// Mock user data - in a real app, this would come from your database based on the username
 const userData = {
   name: "Alex Johnson",
   username: "alexj",
@@ -111,8 +111,15 @@ const userData = {
   totalReviews: 12,
 }
 
-export default function ProfilePage() {
+export default function FreelancerProfilePage({ params }) {
   const [activeTab, setActiveTab] = useState("services")
+  const { username } = params
+
+  // In a real app, you would fetch the user data based on the username
+  // const { data: userData, isLoading, error } = useSWR(`/api/freelancers/${username}`, fetcher)
+
+  // if (isLoading) return <div>Loading...</div>
+  // if (error) return <div>User not found</div>
 
   return (
     <div className="container px-4 py-8 md:px-6 md:py-12">
@@ -235,9 +242,9 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold tracking-tight">{userData.name}</h1>
             <Button variant="outline" asChild>
-              <Link href="/profile/edit">
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Profile
+              <Link href={`/messages/new?recipient=${userData.username}`}>
+                <Mail className="mr-2 h-4 w-4" />
+                Send Message
               </Link>
             </Button>
           </div>
@@ -294,11 +301,6 @@ export default function ProfilePage() {
                     </CardFooter>
                   </Card>
                 ))}
-              </div>
-              <div className="flex justify-center">
-                <Button variant="outline" asChild>
-                  <Link href="/profile/add-service">Add New Service</Link>
-                </Button>
               </div>
             </TabsContent>
 
