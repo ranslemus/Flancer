@@ -23,6 +23,7 @@ export default function Navbar() {
     { href: "/services", label: "Browse Services" },
     { href: "/freelancers", label: "Find Freelancers" },
     { href: "/how-it-works", label: "How It Works" },
+    { href: "/register",}
   ]
 
   return (
@@ -96,7 +97,7 @@ export default function Navbar() {
                 <Link href="/login">Login</Link>
               </Button>
               <Button asChild>
-                <Link href="/signup">Sign Up</Link>
+                <Link href="/register">Sign Up</Link>
               </Button>
             </div>
           )}
