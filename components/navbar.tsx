@@ -24,6 +24,7 @@ export default function Navbar() {
     { href: "/services", label: "Browse Services" },
     { href: "/find-freelancers", label: "Find Freelancers" },
     { href: "/how-it-works", label: "How It Works" },
+    { href: "/aboutus", label: "About Us"}
   ]
 
   return (
