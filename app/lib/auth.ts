@@ -1,16 +1,25 @@
+'use server'
 import { createClient } from "@/app/lib/supabase/server"
 import { redirect } from "next/navigation"
 import type { Profile } from "@/types/supabase"
 
+
 export async function getSession() {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const {
     data: { session },
+    error,
   } = await supabase.auth.getSession()
+
+  // 🔍 Debugging logs
+  console.log('[getSession] Session:', session)
+  if (error) console.error('[getSession] Error:', error)
 
   return session
 }
+
+
 
 export async function getUserProfile() {
   const session = await getSession()
@@ -29,11 +38,13 @@ export async function requireAuth() {
   const session = await getSession()
 
   if (!session) {
-    redirect("/auth/login")
+    console.warn('[requireAuth] No session found, redirecting')
+    redirect('/auth/login')
   }
 
   return session
 }
+
 
 export async function requireClientRole() {
   const session = await requireAuth()

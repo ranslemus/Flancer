@@ -1,3 +1,4 @@
+'use server'
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -6,10 +7,8 @@ import { Database } from '@/types/supabase'
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
 
-  // Create the Supabase client bound to the request and response
   const supabase = createMiddlewareClient<Database>({ req, res })
 
-  // Get current session info
   const {
     data: { session },
   } = await supabase.auth.getSession()
@@ -25,5 +24,5 @@ export async function middleware(req: NextRequest) {
 
 // Define paths this middleware applies to
 export const config = {
-  matcher: ['/dashboard/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)']
 }

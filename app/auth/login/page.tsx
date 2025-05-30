@@ -39,6 +39,7 @@ export default function LoginPage() {
         description: result.error,
       })
     }
+    // No need to handle success case as the action redirects to dashboard
   }
 
   const handleGithubSignIn = async () => {

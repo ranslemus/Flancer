@@ -41,7 +41,7 @@ export async function signIn(formData: FormData) {
   })
 
   if (error) {
-    redirect('/error')
+    redirect('/login?message=Invalid email or password')
   }
   revalidatePath('/', 'layout')
   redirect('/dashboard')

@@ -15,8 +15,8 @@ export default async function DashboardPage() {
   } = await supabase.auth.getSession()
   
   if (!session) {
-    redirect("/auth/login")
     console.log('NO SESSION')
+    redirect("/auth/login")
   }
 
   // Get user profile data
@@ -33,8 +33,8 @@ export default async function DashboardPage() {
   const profile2 = await getUserProfile()
 
   if (!profile2) {
-    redirect("/auth/login")
     console.log('NO PROFILE')
+    redirect("/auth/login")
   }
 
   if (profile2.user_type === "client") {
