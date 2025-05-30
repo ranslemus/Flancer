@@ -14,7 +14,7 @@ export const signUpAction = async (formData: FormData) => {
   if (!email || !password) {
     return encodedRedirect(
       "error",
-      "/sign-up",
+      "/auth/register",
       "Email and password are required",
     );
   }
@@ -50,10 +50,14 @@ export const signInAction = async (formData: FormData) => {
   });
 
   if (error) {
-    return encodedRedirect("error", "/sign-in", error.message);
+    return encodedRedirect("error", "/login", error.message);
   }
 
-  return redirect("/dashboard");
+  // return redirect("/dashboard"); 
+  return {
+    type: "success",
+    message: "Login berhasil!",
+  };
 };
 
 export const forgotPasswordAction = async (formData: FormData) => {
