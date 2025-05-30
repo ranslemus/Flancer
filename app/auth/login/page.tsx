@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
@@ -20,7 +20,7 @@ export default function LoginPage() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const supabase = createClient()
+  const supabase = React.useMemo(() => createClient(), [])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()

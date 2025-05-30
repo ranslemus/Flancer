@@ -36,12 +36,22 @@ export default async function DashboardPage() {
     console.log('NO PROFILE')
     redirect("/auth/login")
   }
+  console.log('profile2:', profile2)
+  console.log('Type:', Object.prototype.toString.call(profile2))
 
-  if (profile2.user_type === "client") {
-    return <ClientDashboard profile={profile2} />
-  } else if (profile2.user_type === "freelancer") {
-    return <FreelancerDashboard profile={profile2} />
+  const safeProfile = JSON.parse(JSON.stringify(profile2))
+
+  if (safeProfile.user_type === "client") {
+    return <ClientDashboard profile={safeProfile} />
+  } else if (safeProfile.user_type === "freelancer") {
+    return <FreelancerDashboard profile={safeProfile} />
+  } else {
+    console.log("Unknown user type:", safeProfile.user_type)
+    redirect("/auth/login")
   }
+
+
+
 }
 
 // Mock data for the dashboard

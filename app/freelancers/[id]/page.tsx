@@ -9,12 +9,13 @@ import { MapPin, MessageSquare } from "lucide-react"
 import Link from "next/link"
 
 interface FreelancerProfilePageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
-export default async function FreelancerProfilePage({ params }: FreelancerProfilePageProps) {
+export default async function FreelancerProfilePage(props: FreelancerProfilePageProps) {
+  const params = await props.params;
   const supabase = createClient()
 
   // Fetch freelancer profile

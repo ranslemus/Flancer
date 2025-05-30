@@ -6,5 +6,8 @@ import { cookies } from 'next/headers'
 import { Database } from '@/types/supabase'
 
 export async function createClient() {
-  return createServerComponentClient<Database>({ cookies: () => cookies() })
+  const cookieStore = await cookies() // ← safely get the cookies
+  return createServerComponentClient<Database>({
+    cookies: () => cookieStore
+  })
 }

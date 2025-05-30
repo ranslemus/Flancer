@@ -10,12 +10,13 @@ import Link from "next/link"
 import { ApplyForm } from "./apply-form"
 
 interface JobDetailsPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
-export default async function JobDetailsPage({ params }: JobDetailsPageProps) {
+export default async function JobDetailsPage(props: JobDetailsPageProps) {
+  const params = await props.params;
   const supabase = createClient()
 
   // Fetch job details

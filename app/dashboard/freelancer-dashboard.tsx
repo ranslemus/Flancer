@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Briefcase, DollarSign, FileText, Search, Star } from "lucide-react"
 
-interface FreelancerDashboardProps {
-  profile: Profile
-}
+// interface FreelancerDashboardProps {
+//   profile: Profile
+// }
 
 export async function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
   const supabase = createClient()
