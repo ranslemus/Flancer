@@ -1,30 +1,52 @@
-"use client"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@/utils/supabase/client";
+import { User } from "@supabase/supabase-js"
+
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Menu, X, Bell } from "lucide-react"
-import { useState } from "react"
 import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
-import Logo from '../components/logo'; // Adjust the path if needed
+import { cn } from "@/app/lib/utils"
+import Logo from "../components/logo"
 
 export default function Navbar() {
+   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
+  const [user, setUser] = useState<User | null>(null)
 
-  // Mock authentication state - in a real app, this would come from your auth provider
-  const isAuthenticated = false
+  const supabase = createClient();
+
+  useEffect(() => {
+    const getSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setUserEmail(session?.user?.email || null);
+    };
+    getSession();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login"; // or router.push if using router
+  };
 
   const routes = [
     { href: "/", label: "Home" },
     { href: "/services", label: "Browse Services" },
     { href: "/find-freelancers", label: "Find Freelancers" },
     { href: "/how-it-works", label: "How It Works" },
+    { href: "/register", label: "Register" },
   ]
+
+  
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -41,7 +63,7 @@ export default function Navbar() {
                 href={route.href}
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-primary",
-                  pathname === route.href ? "text-foreground" : "text-muted-foreground",
+                  pathname === route.href ? "text-foreground" : "text-muted-foreground"
                 )}
               >
                 {route.label}
@@ -62,7 +84,7 @@ export default function Navbar() {
 
           <ModeToggle />
 
-          {isAuthenticated ? (
+          {user ? (
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon">
                 <Bell className="h-5 w-5" />
@@ -73,21 +95,16 @@ export default function Navbar() {
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src="/placeholder.svg" alt="@user" />
-                      <AvatarFallback>U</AvatarFallback>
+                      <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem>{user.email}</DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard">Dashboard</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile">Profile</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings">Settings</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>Logout</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -121,7 +138,7 @@ export default function Navbar() {
                 href={route.href}
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-primary",
-                  pathname === route.href ? "text-foreground" : "text-muted-foreground",
+                  pathname === route.href ? "text-foreground" : "text-muted-foreground"
                 )}
                 onClick={() => setIsMenuOpen(false)}
               >
@@ -137,25 +154,23 @@ export default function Navbar() {
             <div className="flex items-center justify-between pt-4">
               <ModeToggle />
 
-              {isAuthenticated ? (
+              {user ? (
                 <div className="flex items-center gap-4">
                   <Button variant="ghost" size="icon">
                     <Bell className="h-5 w-5" />
                   </Button>
-                  <Link href="/profile">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src="/placeholder.svg" alt="@user" />
-                      <AvatarFallback>U</AvatarFallback>
-                    </Avatar>
-                  </Link>
+                  <span className="text-sm">{user.email}</span>
+                  <Button size="sm" onClick={handleLogout}>
+                    Logout
+                  </Button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" asChild>
-                    <Link href="/login">Login</Link>
+                    <Link href="/auth/login">Login</Link>
                   </Button>
                   <Button asChild>
-                    <Link href="/signup">Sign Up</Link>
+                    <Link href="/auth/register">Sign Up</Link>
                   </Button>
                 </div>
               )}

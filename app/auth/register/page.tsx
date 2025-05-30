@@ -1,5 +1,4 @@
 "use client"
-
 import type React from "react"
 
 import { useState } from "react"
@@ -219,7 +218,7 @@ export default function RegisterPage() {
                   <span>Free to Join</span>
                 </div>
               </div>
-            </div>
+            </div>More actions
           </div>
         </div>
       </div>

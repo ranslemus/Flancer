@@ -3,15 +3,14 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import Navbar from "@/components/navbar"
-import Footer from "@/components/footer"
+import { SiteHeader } from "@/components/site-header"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Flancer - Platform for Emerging Tech Freelancers",
-  description: "Connect with clients and build your portfolio as a new developer",
-    generator: 'v0.dev'
+  title: "Flancer - Freelancing Platform for Beginners",
+  description: "Connect with clients and freelancers to get your projects done.",
 }
 
 export default function RootLayout({
@@ -20,14 +19,14 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <div className="flex min-h-screen flex-col">
-            <Navbar />
-            <main className="flex-1">{children}</main>
-            <Footer />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <div className="relative flex min-h-screen flex-col">
+            <SiteHeader />
+            <div className="flex-1">{children}</div>
           </div>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
