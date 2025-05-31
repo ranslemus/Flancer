@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   // Panggil usePathname DI DALAM komponen (RootLayout)
   const pathname = usePathname()
-  const hideFooter = pathname === "/auth/login" || pathname === "/auth/register"
+  const hideFooter = pathname === "/login" || pathname === "/auth/register"
 
   return (
     <html lang="en" suppressHydrationWarning>
