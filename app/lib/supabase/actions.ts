@@ -30,10 +30,10 @@ export async function signUp(formData: FormData) {
   return { success: 'Please check your email to confirm your account.' }
 }
 
-export async function signIn(formData: FormData) {
+export async function signIn(formData: FormData): Promise<{ error?: string }> {
   const supabase = await createClient()
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
+  const email = formData.get("email") as string
+  const password = formData.get("password") as string
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -41,11 +41,12 @@ export async function signIn(formData: FormData) {
   })
 
   if (error) {
-    redirect('/login?message=Invalid email or password')
+    return { error: "Invalid email or password" }
   }
-  revalidatePath('/', 'layout')
-  redirect('/dashboard')
+
+  return {} // success
 }
+
 
 
 export async function signOut() {
