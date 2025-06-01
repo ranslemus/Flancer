@@ -20,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const hideFooterRoutes = ["/login", "/auth/register"];
+  const hideFooterRoutes = ["/auth/login", "/auth/register"];
   const hideFooter = hideFooterRoutes.includes(pathname ?? "");
 
   // Memoize supabase client once per app instance
