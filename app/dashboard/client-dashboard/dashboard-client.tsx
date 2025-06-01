@@ -203,6 +203,9 @@ export default function DashboardClient() {
                 <Bell className="mr-2 h-4 w-4" />
                 Notifications
               </Button>
+              <Button variant="outline" size="sm" asChild>
+                  <Link href="/edit-profile">Edit Profile</Link>
+                </Button>
               <Button size="sm">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {client.role === "freelancer" ? "Find New Jobs" : "Post New Job"}
