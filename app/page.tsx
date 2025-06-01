@@ -53,7 +53,7 @@ export default function Home() {
             </div>
             <div className="flex items-center justify-center">
               <Image
-                src="/placeholder.svg?height=500&width=500"
+                src="/homepage1.jpg?height=500&width=500"
                 width={500}
                 height={500}
                 alt="Hero Image"
