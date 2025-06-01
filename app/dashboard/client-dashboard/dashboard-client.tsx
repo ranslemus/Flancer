@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,6 +28,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useSession } from "@supabase/auth-helpers-react"
+import { supabase } from "@/lib/supabaseClient"
+
 
 // Mock data for the dashboard
 const mockActiveJobs = [
@@ -141,14 +143,36 @@ const mockApplications = [
   },
 ]
 
+
 export default function DashboardClient() {
   const session = useSession() // 👈 use context here
   const [activeTab, setActiveTab] = useState("overview")
 
+  const [client, setClient] = useState(null)
+
+  useEffect(() => {
+    const fetchClient = async () => {
+      if (session?.user) {
+        const { data, error } = await supabase
+          .from("client")
+          .select("full_name")
+          .eq("user_id", session.user.id)
+          .single()
+
+        if (error) {
+          console.error("Error fetching client info:", error.message)
+        } else {
+          setClient(data)
+        }
+      }
+    }
+
+    fetchClient()
+  }, [session])
+
   if (!session) return <div>Loading...</div>
 
   const user = session.user
-
 
   // Mock user stats
   const mockUserStats = {
@@ -164,27 +188,31 @@ export default function DashboardClient() {
       {/* Header Section */}
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16 border-4 border-background">
-              {/* <AvatarImage src="/placeholder.svg" alt={user.name} />
-              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback> */}
-            </Avatar>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Hi, {user.name}</h1>
-              <p className="text-muted-foreground">{user.userType === "freelancer" ? "Freelancer" : "Client"}</p>
+          {client ? (
+            <>
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16 border-4 border-background">
+              </Avatar>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Hi, {client.full_name}</h1>
+                <p className="text-muted-foreground">{client.role || "Client"}</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="hidden md:flex">
-              <Bell className="mr-2 h-4 w-4" />
-              Notifications
-            </Button>
-            <Button size="sm">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              {user.userType === "freelancer" ? "Find New Jobs" : "Post New Job"}
-            </Button>
-            {/* <UserNav user={{ id: user.id, name: user.name, email: user.email }} /> */}
-          </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="hidden md:flex">
+                <Bell className="mr-2 h-4 w-4" />
+                Notifications
+              </Button>
+              <Button size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                {client.role === "freelancer" ? "Find New Jobs" : "Post New Job"}
+              </Button>
+              {/* <UserNav user={{ id: user.id, name: user.name, email: user.email }} /> */}
+            </div>
+          </>
+          ) : (
+            <p>Loading client info...</p>
+          )}
         </div>
       </div>
 
