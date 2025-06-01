@@ -1,54 +1,48 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/app/lib/supabase/client";
-import { signIn } from "@/app/lib/supabase/actions";
 import { useToast } from "@/hooks/use-toast";
+import { useSessionContext } from '@supabase/auth-helpers-react';
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [supabase, setSupabase] = useState<any>(null);
+  const { supabaseClient } = useSessionContext(); // ✅ shared client
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const client = createClient();
-    setSupabase(client);
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setFormError(null);
 
-    const formData = new FormData();
-    formData.append("email", email);
-    formData.append("password", password);
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+    console.log('Session after sign-in:', data.session)
 
-    const result = await signIn(formData);
-    console.log("SignIn Result:", result)
 
-    if (result?.error) {
-      setFormError(result.error);
+    if (error) {
+      setFormError(error.message);
       setIsLoading(false);
       toast({
         variant: "destructive",
         title: "Authentication failed",
-        description: result.error,
+        description: error.message,
       });
       return;
     }
 
-    router.refresh();
-    router.push("/dashboard");
+    router.refresh(); // update session context
+    router.push("/dashboard/client-dashboard");
   };
 
   return (

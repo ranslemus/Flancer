@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
-import { UserNav } from "@/components/user-nav"
 import {
   BarChart,
   Bell,
@@ -28,6 +27,7 @@ import {
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useSession } from "@supabase/auth-helpers-react"
 
 // Mock data for the dashboard
 const mockActiveJobs = [
@@ -141,17 +141,14 @@ const mockApplications = [
   },
 ]
 
-interface DashboardClientProps {
-  user: {
-    id: string
-    email?: string
-    name: string
-    userType: string
-  }
-}
-
-export default function DashboardClient({ user }: DashboardClientProps) {
+export default function DashboardClient() {
+  const session = useSession() // 👈 use context here
   const [activeTab, setActiveTab] = useState("overview")
+
+  if (!session) return <div>Loading...</div>
+
+  const user = session.user
+
 
   // Mock user stats
   const mockUserStats = {
@@ -169,8 +166,8 @@ export default function DashboardClient({ user }: DashboardClientProps) {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16 border-4 border-background">
-              <AvatarImage src="/placeholder.svg" alt={user.name} />
-              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+              {/* <AvatarImage src="/placeholder.svg" alt={user.name} />
+              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback> */}
             </Avatar>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Hi, {user.name}</h1>
@@ -186,7 +183,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
               <PlusCircle className="mr-2 h-4 w-4" />
               {user.userType === "freelancer" ? "Find New Jobs" : "Post New Job"}
             </Button>
-            <UserNav user={{ id: user.id, name: user.name, email: user.email }} />
+            {/* <UserNav user={{ id: user.id, name: user.name, email: user.email }} /> */}
           </div>
         </div>
       </div>

@@ -30,22 +30,25 @@ export async function signUp(formData: FormData) {
   return { success: 'Please check your email to confirm your account.' }
 }
 
-export async function signIn(formData: FormData): Promise<{ error?: string }> {
-  const supabase = await createClient()
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
+export async function signIn(formData: FormData): Promise<{ error?: string; session?: any }> {
+  const supabase = await createClient();
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
-  })
+  });
 
   if (error) {
-    return { error: "Invalid email or password" }
+    return { error: error.message };
   }
 
-  return {} // success
+  return {
+    session: data.session, 
+  };
 }
+
 
 
 

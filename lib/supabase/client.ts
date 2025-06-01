@@ -1,10 +1,5 @@
-// app/lib/supabase/server.ts
-'use server'
-
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { cookies, type UnsafeUnwrappedCookies } from 'next/headers';
+// app/lib/supabase/client.ts
 import { Database } from '@/types/supabase'
+import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs'
 
-export async function createClient() {
-  return createServerComponentClient<Database>({ cookies: () => (cookies() as unknown as UnsafeUnwrappedCookies) });
-}
+export const supabase = createPagesBrowserClient<Database>()

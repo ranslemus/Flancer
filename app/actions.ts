@@ -33,7 +33,7 @@ export const signUpAction = async (formData: FormData) => {
   } else {
     return encodedRedirect(
       "success",
-      "/register/page.tsx",
+      "/login",
       "Thanks for signing up! Please check your email for a verification link.",
     );
   }

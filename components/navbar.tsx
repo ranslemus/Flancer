@@ -7,15 +7,43 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Menu, X, Bell } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from 'react';
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+import type { Database } from '@/types/supabase';
+
+const supabase = createPagesBrowserClient<Database>();
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
+  const [isAuthenticated,setIsAuthenticated] = useState(false)
+  useEffect(() => {
+    // Check current session
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
+    };
 
-  const isAuthenticated = false
+    checkAuth();
+
+    // Optional: listen for auth state changes (e.g. login/logout)
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+  console.log(isAuthenticated)
+  
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    // Redirect to login or home after logout
+    window.location.href = '/'; // or '/'
+  };
 
   const routes = [
     { href: "/", label: "Home" },
@@ -30,7 +58,6 @@ export default function Navbar() {
           <Link href="/" className="flex items-center space-x-2">
             <span className="text-2xl font-bold text-primary">Flancer</span>
           </Link>
-
           <nav className="hidden md:flex gap-6">
             {routes.map((route) => (
               <Link
@@ -76,7 +103,7 @@ export default function Navbar() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard">Dashboard</Link>
+                    <Link href="/dashboard/client-dashboard">Dashboard</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/profile">Profile</Link>
@@ -84,14 +111,14 @@ export default function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link href="/settings">Settings</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>Logout</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <Button variant="ghost" asChild>
-                <Link href="/login">Login</Link>
+                <Link href="/auth/login">Login</Link>
               </Button>
               <Button asChild>
                 <Link href="/auth/register">Sign Up</Link>
@@ -149,7 +176,7 @@ export default function Navbar() {
               ) : (
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" asChild>
-                    <Link href="/login">Login</Link>
+                    <Link href="/auth/login">Login</Link>
                   </Button>
                   <Button asChild>
                     <Link href="/auth/register">Sign Up</Link>
