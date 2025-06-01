@@ -140,57 +140,108 @@ export default function ServicesPage() {
     priceRange: [0, 2000],
     deliveryTime: [],
   })
+  const [sortBy, setSortBy] = useState("newest")
 
-  // Filter services based on search term and filters
-  const filteredServices = servicesData.filter((service) => {
-    // Search term filter
-    if (
-      searchTerm &&
-      !(
-        service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.skills?.some((skill) => skill?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        service.freelancer?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    ) {
-      return false
-    }
-
-    // Category filter
-    if (filters.categories.length > 0 && !filters.categories.includes(service.category)) {
-      return false
-    }
-
-    // Level filter
-    if (filters.level.length > 0 && !filters.level.includes(service.level)) {
-      return false
-    }
-
-    // Price range filter
-    const serviceMinPrice = Number.parseInt(service.price?.split("-")[0].replace(/\D/g, "") || "0")
-    if (serviceMinPrice < filters.priceRange[0] || serviceMinPrice > filters.priceRange[1]) {
-      return false
-    }
-
-    // Delivery time filter
-    if (filters.deliveryTime.length > 0) {
-      const deliveryMatch = filters.deliveryTime.some((time) => {
-        if (time === "short" && service.deliveryTime?.includes("1")) return true
-        if (time === "medium" && service.deliveryTime?.includes("2")) return true
-        if (
-          time === "long" &&
-          (service.deliveryTime?.includes("3") ||
-            service.deliveryTime?.includes("4") ||
-            service.deliveryTime?.includes("5"))
+  // Filter and sort services based on search term, filters, and sort option
+  const filteredAndSortedServices = servicesData
+    .filter((service) => {
+      // Search term filter
+      if (
+        searchTerm &&
+        !(
+          service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          service.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          service.skills?.some((skill) => skill?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          service.freelancer?.name?.toLowerCase().includes(searchTerm.toLowerCase())
         )
-          return true
+      ) {
         return false
-      })
-      if (!deliveryMatch) return false
-    }
+      }
 
-    return true
-  })
+      // Category filter
+      if (filters.categories.length > 0 && !filters.categories.includes(service.category)) {
+        return false
+      }
+
+      // Level filter
+      if (filters.level.length > 0 && !filters.level.includes(service.level)) {
+        return false
+      }
+
+      // Price range filter
+      const serviceMinPrice = Number.parseInt(service.price?.split("-")[0].replace(/\D/g, "") || "0")
+      if (serviceMinPrice < filters.priceRange[0] || serviceMinPrice > filters.priceRange[1]) {
+        return false
+      }
+
+      // Delivery time filter
+      if (filters.deliveryTime.length > 0) {
+        const deliveryMatch = filters.deliveryTime.some((time) => {
+          if (time === "short" && service.deliveryTime?.includes("1")) return true
+          if (time === "medium" && service.deliveryTime?.includes("2")) return true
+          if (
+            time === "long" &&
+            (service.deliveryTime?.includes("3") ||
+              service.deliveryTime?.includes("4") ||
+              service.deliveryTime?.includes("5"))
+          )
+            return true
+          return false
+        })
+        if (!deliveryMatch) return false
+      }
+
+      return true
+    })
+    .sort((a, b) => {
+      // Helper function to convert relative time to days for sorting
+      const getRelativeDays = (timeString) => {
+        const match = timeString.match(/(\d+)\s+(day|week|month)s?\s+ago/)
+        if (!match) return 0
+
+        const [, number, unit] = match
+        const num = Number.parseInt(number)
+
+        switch (unit) {
+          case "day":
+            return num
+          case "week":
+            return num * 7
+          case "month":
+            return num * 30
+          default:
+            return 0
+        }
+      }
+
+      switch (sortBy) {
+        case "newest":
+          // Sort by posted date (newest first - smaller days ago = more recent)
+          const daysAgoA = getRelativeDays(a.postedDate)
+          const daysAgoB = getRelativeDays(b.postedDate)
+          return daysAgoA - daysAgoB
+        case "oldest":
+          // Sort by posted date (oldest first - larger days ago = older)
+          const daysAgoA2 = getRelativeDays(a.postedDate)
+          const daysAgoB2 = getRelativeDays(b.postedDate)
+          return daysAgoB2 - daysAgoA2
+        case "price-high":
+          // Sort by price (high to low)
+          const priceA = Number.parseInt(a.price?.split("-")[1].replace(/\D/g, "") || "0")
+          const priceB = Number.parseInt(b.price?.split("-")[1].replace(/\D/g, "") || "0")
+          return priceB - priceA
+        case "price-low":
+          // Sort by price (low to high)
+          const priceA2 = Number.parseInt(a.price?.split("-")[0].replace(/\D/g, "") || "0")
+          const priceB2 = Number.parseInt(b.price?.split("-")[0].replace(/\D/g, "") || "0")
+          return priceA2 - priceB2
+        case "rating":
+          // Sort by rating (highest first)
+          return b.freelancer.rating - a.freelancer.rating
+        default:
+          return 0
+      }
+    })
 
   const handleCategoryChange = (category: string) => {
     setFilters((prev) => {
@@ -232,6 +283,7 @@ export default function ServicesPage() {
       deliveryTime: [],
     })
     setSearchTerm("")
+    setSortBy("newest")
   }
 
   return (
@@ -397,7 +449,7 @@ export default function ServicesPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Select defaultValue="newest">
+            <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
@@ -414,14 +466,14 @@ export default function ServicesPage() {
           {/* Results Count */}
           <div className="mb-4">
             <p className="text-sm text-muted-foreground">
-              Showing {filteredServices.length} of {servicesData.length} services
+              Showing {filteredAndSortedServices.length} of {servicesData.length} services
             </p>
           </div>
 
           {/* Service Listings */}
           <div className="grid gap-4">
-            {filteredServices.length > 0 ? (
-              filteredServices.map((service) => (
+            {filteredAndSortedServices.length > 0 ? (
+              filteredAndSortedServices.map((service) => (
                 <Card key={service.id} className="overflow-hidden">
                   <CardHeader className="pb-3">
                     <div className="flex justify-between">
