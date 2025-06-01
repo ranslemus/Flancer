@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils"
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
-  
+
   const isAuthenticated = false
 
   const routes = [
