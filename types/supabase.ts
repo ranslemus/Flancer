@@ -41,6 +41,7 @@ export type Database = {
           services_id: string[] | null
           skills: string[] | null
           user_id: string
+          rating: number
         }
         Insert: {
           earnings?: number | null
@@ -49,6 +50,7 @@ export type Database = {
           services_id?: string[] | null
           skills?: string[] | null
           user_id: string
+          rating: number
         }
         Update: {
           earnings?: number | null
@@ -57,6 +59,7 @@ export type Database = {
           services_id?: string[] | null
           skills?: string[] | null
           user_id?: string
+          rating: number
         }
         Relationships: [
           {
