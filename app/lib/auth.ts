@@ -45,7 +45,7 @@ export async function requireAuth() {
 
   if (!session) {
     console.log("[requireAuth] No session found, redirecting")
-    redirect("/auth/login")
+    redirect("/login")
   }
 }
 
@@ -57,7 +57,7 @@ export async function requireClientRole() {
   const { data: profile } = await supabase.from("profiles").select("user_type").eq("id", session.user.id).single()
 
   if (!profile || profile.user_type !== "client") {
-    redirect("/dashboard")
+    redirect("/job-list")
   }
 
   return session
@@ -70,7 +70,7 @@ export async function requireFreelancerRole() {
   const { data: profile } = await supabase.from("profiles").select("user_type").eq("id", session.user.id).single()
 
   if (!profile || profile.user_type !== "freelancer") {
-    redirect("/dashboard")
+    redirect("/job-list")
   }
 
   return session
