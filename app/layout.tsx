@@ -15,7 +15,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Panggil usePathname DI DALAM komponen (RootLayout)
   const pathname = usePathname()
   const hideFooter = pathname === "/login" || pathname === "/auth/register"
 

@@ -54,10 +54,6 @@ export const signInAction = async (formData: FormData) => {
   }
 
   return redirect("/dashboard"); 
-  return {
-    type: "success",
-    message: "Login berhasil!",
-  };
 };
 
 export const forgotPasswordAction = async (formData: FormData) => {
