@@ -14,14 +14,12 @@ import { cn } from "@/lib/utils"
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
-
-  // Mock authentication state - in a real app, this would come from your auth provider
+  
   const isAuthenticated = false
 
   const routes = [
     { href: "/", label: "Home" },
     { href: "/services", label: "Browse Services" },
-    { href: "/freelancers", label: "Find Freelancers" },
     { href: "/how-it-works", label: "How It Works" },
   ]
 
