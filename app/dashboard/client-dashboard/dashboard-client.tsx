@@ -206,9 +206,11 @@ export default function DashboardClient() {
               <Button variant="outline" size="sm" asChild>
                   <Link href="/edit-profile">Edit Profile</Link>
                 </Button>
-              <Button size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                {client.role === "freelancer" ? "Find New Jobs" : "Post New Job"}
+              <Button size="sm" asChild>
+                <Link href={client.role === "freelancer" ? "./freelancer-dashboard/jobs" : "./client-dashboard/post-job"}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  {client.role === "freelancer" ? "Find New Jobs" : "Post New Job"}
+                </Link>
               </Button>
               {/* <UserNav user={{ id: user.id, name: user.name, email: user.email }} /> */}
             </div>
