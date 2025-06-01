@@ -29,7 +29,6 @@ export default function LoginPage() {
     });
     console.log('Session after sign-in:', data.session)
 
-
     if (error) {
       setFormError(error.message);
       setIsLoading(false);

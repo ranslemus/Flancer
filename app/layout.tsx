@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -9,7 +9,7 @@ import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
 
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
-import { SessionContextProvider } from '@supabase/auth-helpers-react';
+import { SessionContextProvider, useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
 import type { Database } from '@/types/supabase';
 
 const inter = Inter({ subsets: ["latin"] });

@@ -15,11 +15,6 @@ interface ErrorPageProps {
 export default function Error({ error, reset }: ErrorPageProps) {
   const router = useRouter()
 
-  useEffect(() => {
-    // Log the error to an error reporting service
-    console.error(error)
-  }, [error])
-
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
       <Card className="mx-auto max-w-md">
@@ -36,9 +31,9 @@ export default function Error({ error, reset }: ErrorPageProps) {
         </CardHeader>
         <CardContent>
           <div className="rounded-md bg-muted p-4">
-            <p className="text-sm font-medium">Error: {error.message || "An unexpected error occurred"}</p>
-            {error.digest && (
-              <p className="mt-2 text-xs text-muted-foreground">Reference: {error.digest}</p>
+            <p className="text-sm font-medium">Error: {error?.message || "An unexpected error occurred"}</p>
+            {error?.digest && (
+              <p className="mt-2 text-xs text-muted-foreground">Reference: {error?.digest}</p>
             )}
           </div>
         </CardContent>

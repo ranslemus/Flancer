@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 
 export default function Signup({ searchParams }: { searchParams: Promise<Message> }) {
+  const [name,setName] = useState("");
+  const [birthdate, setBirthdate] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -31,6 +33,8 @@ export default function Signup({ searchParams }: { searchParams: Promise<Message
     setError(null);
 
     const formData = new FormData();
+    formData.append("name",name);
+    formData.append("birthdate",birthdate);
     formData.append("email", email);
     formData.append("password", password);
 
@@ -56,6 +60,25 @@ export default function Signup({ searchParams }: { searchParams: Promise<Message
           </Link>
         </p>
         <div className="flex flex-col gap-2">
+          <Label htmlFor="name">Name</Label>
+          <Input
+            name="name"
+            type="text"
+            placeholder="John Doe"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <Label htmlFor="birthdate">Birthdate</Label>
+          <Input
+            id="birthdate"
+            name="birthdate"
+            type="date"
+            value={birthdate}
+            onChange={(e) => setBirthdate(e.target.value)}
+            required
+            className="pr-10 appearance-none"
+          />
           <Label htmlFor="email">Email</Label>
           <Input
             name="email"

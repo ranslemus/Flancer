@@ -6,8 +6,11 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export const signUpAction = async (formData: FormData) => {
+  const name = formData.get("name")?.toString();
+  const birthdate = formData.get("birthdate")?.toString();
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
+  console.log(birthdate)
   const supabase = await createClient();
   const origin = (await headers()).get("origin");
 
@@ -15,29 +18,78 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect(
       "error",
       "/auth/register",
-      "Email and password are required",
+      "Email and password are required"
     );
   }
 
-  const { error } = await supabase.auth.signUp({
+  if (!name) {
+    return encodedRedirect(
+      "error",
+      "/auth/register",
+      "Name is required"
+    );
+  }
+
+  // Proceed with signup
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: `${origin}/auth/login`,
+      data: {
+        name,
+        birthdate,
+      },
     },
   });
 
-  if (error) {
-    console.error(error.code + " " + error.message);
-    return encodedRedirect("error", "/auth/register", error.message);
-  } else {
+  if (signUpError) {
+    if (signUpError.message.toLowerCase().includes("user already registered")) {
+      return redirect("/auth/register/user-exists");
+    }
+
+    console.error(signUpError.code + " " + signUpError.message);
+    return encodedRedirect("error", "/auth/register", signUpError.message);
+  }
+
+  const userId = signUpData.user?.id;
+
+  if (!userId) {
     return encodedRedirect(
-      "success",
-      "/auth/register/email-verification",
-      "Thanks for signing up! Please check your email for a verification link.",
+      "error",
+      "/auth/register",
+      "User ID not returned after signup"
     );
   }
+
+  // Insert into client table immediately (before email verification)
+  // This ensures the profile exists when they verify their email
+  const { error: insertError } = await supabase.from("client").insert({
+    user_id: userId,
+    full_name: name,
+    birthdate: birthdate,
+    role: "client",
+    created_at: new Date().toISOString(),
+  });
+
+  if (insertError) {
+    console.error("Failed to create client profile:", insertError);
+       
+    return encodedRedirect(
+      "error",
+      "/auth/register",
+      "Failed to create user profile. Please try again."
+    );
+  }
+
+  return encodedRedirect(
+    "success",
+    "/auth/register/email-verification",
+    "Thanks for signing up! Please check your email for a verification link."
+  );
 };
+
+
 
 export const signInAction = async (formData: FormData) => {
   const email = formData.get("email") as string;
