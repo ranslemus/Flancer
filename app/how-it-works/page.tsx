@@ -45,7 +45,7 @@ export default function HowItWorksPage() {
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg">
-                <Link href="/jobs">Browse Jobs</Link>
+                <Link href="/services">Browse Available Services</Link>
               </Button>
             </div>
           </div>
@@ -916,7 +916,7 @@ export default function HowItWorksPage() {
                 variant="outline"
                 className="bg-transparent text-primary-foreground border-primary-foreground hover:bg-primary-foreground hover:text-primary"
               >
-                <Link href="/jobs">Browse Available Jobs</Link>
+                <Link href="/services"> Jobs</Link>
               </Button>
             </div>
           </div>

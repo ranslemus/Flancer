@@ -41,7 +41,7 @@ export default function LoginPage() {
     }
 
     router.refresh(); // update session context
-    router.push("/dashboard/client-dashboard");
+    router.push("/dashboard");
   };
 
   return (

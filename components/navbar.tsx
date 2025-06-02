@@ -94,7 +94,7 @@ export default function Navbar() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard/client-dashboard">Dashboard</Link>
+                    <Link href="/dashboard">Dashboard</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/profile">Profile</Link>

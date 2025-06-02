@@ -16,6 +16,9 @@ export type Database = {
           full_name: string
           role: string
           user_id: string
+          active_jobs: number | null
+          jobs_purchased_num: number | null
+          total_spent_num: number | null
         }
         Insert: {
           birthdate: string
@@ -23,6 +26,9 @@ export type Database = {
           full_name: string
           role?: string
           user_id: string
+          active_jobs: number | null
+          jobs_purchased_num: number | null
+          total_spent_num: number | null
         }
         Update: {
           birthdate?: string
@@ -30,6 +36,9 @@ export type Database = {
           full_name?: string
           role?: string
           user_id?: string
+          active_jobs: number | null
+          jobs_purchased_num: number | null
+          total_spent_num: number | null
         }
         Relationships: []
       }

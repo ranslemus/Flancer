@@ -192,13 +192,6 @@ export default function EditProfile() {
               />
             </div>
 
-            {/* Role Field (Read-only) */}
-            <div className="space-y-2">
-              <Label htmlFor="role">Account Type</Label>
-              <Input id="role" name="role" type="text" value={formData.role} disabled className="bg-muted capitalize" />
-              <p className="text-xs text-muted-foreground">Account type cannot be changed after registration.</p>
-            </div>
-
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <Button type="submit" disabled={saving} className="flex-1">
