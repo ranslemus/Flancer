@@ -34,10 +34,10 @@ interface FreelancerData {
 interface ServiceData {
   service_id: string
   service_name: string
-  price_range: number
+  price_range: number[]
   service_description: string
   service_pictures?: string
-  category: string
+  category: string[]
 }
 
 interface ReviewData {
@@ -134,7 +134,7 @@ export default function ProfilePage() {
 
       // Fetch services
       const { data: servicesData, error: servicesError } = await supabase
-        .from("ServiceList")
+        .from("serviceList")
         .select("*")
         .eq("freelancer_id", userId)
 
@@ -308,11 +308,15 @@ export default function ProfilePage() {
                       <CardContent>
                         <p className="text-sm text-muted-foreground">{service.service_description}</p>
                         <div className="mt-4 flex flex-wrap gap-2">
-                          <Badge variant="secondary">{service.category}</Badge>
+                          {service.category.map((skill, index) => (
+                            <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800">
+                              {skill}
+                            </Badge>
+                          ))}
                         </div>
                         <div className="mt-4 flex justify-between text-sm">
                           <div className="flex items-center">
-                            <span className="font-medium">${service.price_range}</span>
+                            <span className="font-medium">${service.price_range[0]} - ${service.price_range[1]}</span>
                           </div>
                         </div>
                       </CardContent>
@@ -331,14 +335,14 @@ export default function ProfilePage() {
                 <div className="text-center py-12">
                   <p className="text-muted-foreground mb-4">No services created yet.</p>
                   <Button asChild>
-                    <Link href="/profile/add-service">Create Your First Service</Link>
+                    <Link href="/add-service">Create Your First Service</Link>
                   </Button>
                 </div>
               )}
               {services.length > 0 && (
                 <div className="flex justify-center">
                   <Button variant="outline" asChild>
-                    <Link href="/profile/add-service">Add New Service</Link>
+                    <Link href="add-service">Add New Service</Link>
                   </Button>
                 </div>
               )}

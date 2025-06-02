@@ -140,7 +140,7 @@ export default function EditProfile() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard

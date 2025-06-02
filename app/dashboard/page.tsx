@@ -118,7 +118,7 @@ export default function Dashboard() {
 
       if (freelancer.services_id) {
         const { data: service, error: serviceError } = await supabase
-          .from("ServiceList")
+          .from("serviceList")
           .select("*")
           .eq("service_id", freelancer.services_id)
           .single()
