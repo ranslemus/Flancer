@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Plus, X, Upload, ImageIcon } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import Link from "next/link"
 
 interface ServiceFormData {
@@ -53,7 +54,8 @@ export default function AddServicePage() {
     category: [],
     service_pictures: "",
   })
-
+  const [enhancing, setEnhancing] = useState(false)
+  const [categorizingAI, setCategorizingAI] = useState(false)
   const supabase = createClientComponentClient()
   const router = useRouter()
 
@@ -80,7 +82,140 @@ export default function AddServicePage() {
     }
     getUser()
   }, [])
+  // Initialize Gemini AI
+  const genAI = new GoogleGenerativeAI('AIzaSyDGrepRgEhtOlRfEXcaWNCiqKOO6T1x-fg')
 
+  const enhanceWithAI = async () => {
+    if (!formData.service_name.trim() && !formData.service_description.trim()) {
+      alert('Please enter at least a service name or description to enhance')
+      return
+    }
+
+    setEnhancing(true)
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+
+      const prompt = `
+  You are a professional copywriter helping freelancers improve their service listings. Based on the following service information, enhance and improve the content to be more professional, compelling, and attractive to potential clients.
+
+  Current Service Name: "${formData.service_name}"
+  Current Description: "${formData.service_description}"
+
+  Please provide:
+  1. An improved, professional service name (keep it concise but compelling)
+  2. An enhanced service description (150-300 words, professional tone, highlighting benefits and unique value)
+
+  Format your response as JSON:
+  {
+    "enhanced_name": "improved service name here",
+    "enhanced_description": "improved description here"
+  }
+
+  Make sure the enhanced content is professional, specific, and focuses on client benefits. Keep the core service concept but make it more marketable.
+  `
+
+      const result = await model.generateContent(prompt)
+      const response = await result.response
+      const rawText = response.text()
+
+      // Remove markdown formatting if present
+      const cleanedText = rawText.replace(/```(?:json)?\n?([\s\S]*?)```/, '$1').trim()
+
+      try {
+        const enhancedData = JSON.parse(cleanedText)
+
+        if (enhancedData.enhanced_name) {
+          setFormData(prev => ({
+            ...prev,
+            service_name: enhancedData.enhanced_name
+          }))
+        }
+
+        if (enhancedData.enhanced_description) {
+          setFormData(prev => ({
+            ...prev,
+            service_description: enhancedData.enhanced_description
+          }))
+        }
+
+
+      } catch (parseError) {
+        console.error('Error parsing AI response:', parseError)
+  
+      }
+
+    } catch (error) {
+      console.error('Error enhancing with AI:', error)
+      alert('Error enhancing content with AI. Please try again.')
+    } finally {
+      setEnhancing(false)
+    }
+  }
+
+
+  const suggestCategoriesWithAI = async () => {
+    if (!formData.service_name.trim() && !formData.service_description.trim()) {
+      alert('Please enter a service name or description first')
+      return
+    }
+
+    setCategorizingAI(true)
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+      
+      const availableCategories = predefinedCategories.join(', ')
+      
+      const prompt = `
+      Analyze the following service information and suggest the most appropriate categories from the available list.
+
+      Service Name: "${formData.service_name}"
+      Service Description: "${formData.service_description}"
+
+      Available Categories: ${availableCategories}
+
+      Based on the service information, select 2-4 most relevant categories from the available list. Only suggest categories that exist in the available list.
+
+      Format your response as a JSON array of category names:
+      ["Category 1", "Category 2", "Category 3"]
+
+      Be selective and only choose the most relevant categories.
+      `
+
+      const result = await model.generateContent(prompt)
+      const response = await result.response
+      const rawText = response.text()
+      const cleanedText = rawText.replace(/```(?:json)?\n?([\s\S]*?)```/, '$1').trim()
+      try {
+        const suggestedCategories = JSON.parse(cleanedText)
+        
+        if (Array.isArray(suggestedCategories)) {
+          // Add suggested categories that aren't already selected
+          const newCategories = suggestedCategories.filter(cat => 
+            predefinedCategories.includes(cat) && !formData.category.includes(cat)
+          )
+          
+          if (newCategories.length > 0) {
+            setFormData(prev => ({
+              ...prev,
+              category: [...prev.category, ...newCategories]
+            }))
+   
+          } else {
+            
+          }
+        }
+      } catch (parseError) {
+        console.error('Error parsing AI response:', parseError)
+        alert('AI categorization completed but response format was unexpected. Please try again.')
+      }
+      
+    } catch (error) {
+      console.error('Error suggesting categories with AI:', error)
+      alert('Error getting AI category suggestions. Please try again.')
+    } finally {
+      setCategorizingAI(false)
+    }
+  }
   const handleInputChange = (field: keyof ServiceFormData, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -224,17 +359,37 @@ export default function AddServicePage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Service Name */}
-            <div className="space-y-2">
-              <Label htmlFor="service_name">Service Name *</Label>
-              <Input
-                id="service_name"
-                placeholder="e.g., Custom Website Development"
-                value={formData.service_name}
-                onChange={(e) => handleInputChange("service_name", e.target.value)}
-                required
-              />
-            </div>
+              {/* Service Name */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="service_name">Service Name *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={enhanceWithAI}
+                    disabled={enhancing}
+                    className="text-xs"
+                  >
+                    {enhancing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-b border-current mr-2"></div>
+                        Enhancing...
+                      </>
+                    ) : (
+                      <>✨ Enhance with AI</>
+                    )}
+                  </Button>
+                </div>
+                <Input
+                  id="service_name"
+                  placeholder="e.g., Custom Website Development"
+                  value={formData.service_name}
+                  onChange={(e) => handleInputChange("service_name", e.target.value)}
+                  required
+                />
+              </div>
+ 
 
             {/* Price Range */}
             <div className="space-y-2">
@@ -304,7 +459,26 @@ export default function AddServicePage() {
 
             {/* Categories */}
             <div className="space-y-4">
-              <Label>Categories/Tags *</Label>
+              <div className="flex justify-between items-center">
+                <Label>Categories/Tags *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={suggestCategoriesWithAI}
+                  disabled={categorizingAI}
+                  className="text-xs"
+                >
+                  {categorizingAI ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b border-current mr-2"></div>
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>🤖 AI Suggest Categories</>
+                  )}
+                </Button>
+              </div>
 
               {/* Selected Categories */}
               {formData.category.length > 0 && (
