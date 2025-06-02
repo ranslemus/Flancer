@@ -318,7 +318,11 @@ export default function Home() {
               <CardHeader>
                 <div className="flex items-center gap-4">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder.svg" alt="@user" />
+                    <AvatarImage
+                      src="/homepage2.jpg"
+                      alt="@user"
+                      className="h-full w-full object-cover rounded-full"
+                    />
                     <AvatarFallback>JD</AvatarFallback>
                   </Avatar>
                   <div>
@@ -347,8 +351,12 @@ export default function Home() {
               <CardHeader>
                 <div className="flex items-center gap-4">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder.svg" alt="@user" />
-                    <AvatarFallback>MS</AvatarFallback>
+                    <AvatarImage
+                      src="/homepage3.jpg"
+                      alt="@user"
+                      className="h-full w-full object-cover rounded-full"
+                    />
+                    <AvatarFallback>JD</AvatarFallback>
                   </Avatar>
                   <div>
                     <CardTitle className="text-base">Michael Smith</CardTitle>
@@ -376,8 +384,12 @@ export default function Home() {
               <CardHeader>
                 <div className="flex items-center gap-4">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder.svg" alt="@user" />
-                    <AvatarFallback>SP</AvatarFallback>
+                    <AvatarImage
+                      src="/homepage4.jpg"
+                      alt="@user"
+                      className="h-full w-full object-cover rounded-full"
+                    />
+                    <AvatarFallback>JD</AvatarFallback>
                   </Avatar>
                   <div>
                     <CardTitle className="text-base">Sarah Parker</CardTitle>
