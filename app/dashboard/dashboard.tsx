@@ -134,24 +134,24 @@ export default function Dashboard() {
   const fetchJobs = async (userId: string, role: "client" | "freelancer") => {
     try {
       if (role === "client") {
-        const { data: jobs, error } = await supabase
-          .from("jobs")
+        const { data: job, error } = await supabase
+          .from("job")
           .select("*")
           .eq("client_id", userId)
           .order("created_at", { ascending: false })
 
         if (!error) {
-          setClientJobs(jobs || [])
+          setClientJobs(job || [])
         }
       } else {
-        const { data: jobs, error } = await supabase
-          .from("jobs")
+        const { data: job, error } = await supabase
+          .from("job")
           .select("*")
           .eq("freelancer_id", userId)
           .order("created_at", { ascending: false })
 
         if (!error) {
-          setFreelancerJobs(jobs || [])
+          setFreelancerJobs(job || [])
         }
       }
     } catch (error) {
