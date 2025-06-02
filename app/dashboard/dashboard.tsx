@@ -35,8 +35,7 @@ interface ServiceData {
   id: string
   service_name: string
   price_range: string
-  service_description: string
-  service_pictures?: string
+  service_desc: string
 }
 
 interface JobData {
@@ -120,7 +119,7 @@ export default function Dashboard() {
         const { data: service, error: serviceError } = await supabase
           .from("ServiceList")
           .select("*")
-          .eq("service_id", freelancer.services_id)
+          .eq("id", freelancer.services_id)
           .single()
 
         if (!serviceError) {
@@ -205,7 +204,6 @@ export default function Dashboard() {
         console.log("Freelancer record created successfully")
       }
 
-      // Direct to the freelancer-setup page (now at root level)
       window.location.href = "/freelancer-setup"
     } catch (error) {
       console.error("Unexpected error in handleBecomeFreelancer:", error)
@@ -426,20 +424,8 @@ export default function Dashboard() {
                         <h4 className="font-medium mb-2">Services:</h4>
                         <div className="p-3 border rounded-lg">
                           <h5 className="font-medium text-green-700">{serviceData.service_name}</h5>
-                          <p className="text-sm text-muted-foreground">{serviceData.service_description}</p>
+                          <p className="text-sm text-muted-foreground">{serviceData.service_desc}</p>
                           <p className="text-sm font-medium mt-1">Price Range: ${serviceData.price_range}</p>
-                          {serviceData.service_pictures && (
-                            <div className="mt-2">
-                              <img
-                                src={serviceData.service_pictures || "/placeholder.svg"}
-                                alt={serviceData.service_name}
-                                className="w-full h-32 object-cover rounded"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = "none"
-                                }}
-                              />
-                            </div>
-                          )}
                         </div>
                       </div>
                     )}

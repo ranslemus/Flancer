@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Code, BarChart3, Briefcase, Users, Star, CheckCircle } from "lucide-react"
 
+
+
 export default function Home() {
   return (
     <div className="flex flex-col">
