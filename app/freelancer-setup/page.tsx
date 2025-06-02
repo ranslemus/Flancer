@@ -90,7 +90,7 @@ export default function FreelancerSetup() {
           return
         }
       } else {
-        window.location.href = "/login"
+        window.location.href = "/auth/login"
       }
       setLoading(false)
     }

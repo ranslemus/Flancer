@@ -15,7 +15,7 @@ export async function middleware(req: NextRequest) {
 
   // Example: Redirect to login if user is not authenticated and accessing /dashboard
   if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', req.url))
+    return NextResponse.redirect(new URL('/auth/login', req.url))
   }
 
   // Continue with the response if no redirect

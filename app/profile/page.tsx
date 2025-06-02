@@ -88,7 +88,7 @@ export default function ProfilePage() {
         setUser(user)
         await fetchUserData(user.id)
       } else {
-        window.location.href = "/login"
+        window.location.href = "/auth/login"
       }
       setLoading(false)
     }

@@ -55,7 +55,7 @@ export default function Signup({ searchParams }: { searchParams: Promise<Message
         <h1 className="text-2xl font-medium mb-2">Sign up</h1>
         <p className="text-sm text-foreground mb-6">
           Already have an account?{" "}
-          <Link className="text-primary font-medium underline" href="/login">
+          <Link className="text-primary font-medium underline" href="/auth/login">
             Sign in
           </Link>
         </p>

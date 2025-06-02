@@ -45,7 +45,7 @@ export async function requireAuth() {
 
   if (!session) {
     console.log("[requireAuth] No session found, redirecting")
-    redirect("/login")
+    redirect("/auth/login")
   }
 }
 

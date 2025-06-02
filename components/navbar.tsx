@@ -6,44 +6,106 @@ import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Search, Menu, X, Bell } from "lucide-react"
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
-import type { Database } from '@/types/supabase';
-
-const supabase = createPagesBrowserClient<Database>();
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
-  const [isAuthenticated,setIsAuthenticated] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [user, setUser] = useState<any>(null)
+
+  const supabase = createClientComponentClient()
+
   useEffect(() => {
     // Check current session
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-    };
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      setIsAuthenticated(!!session)
+      setUser(session?.user || null)
 
-    checkAuth();
+      if (session?.user) {
+        await fetchUnreadCount(session.user.id)
+      }
+    }
 
-    // Optional: listen for auth state changes (e.g. login/logout)
+    checkAuth()
+
+    // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-    });
+      setIsAuthenticated(!!session)
+      setUser(session?.user || null)
+
+      if (session?.user) {
+        fetchUnreadCount(session.user.id)
+      } else {
+        setUnreadCount(0)
+      }
+    })
 
     return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-  console.log(isAuthenticated)
-  
+      authListener.subscription.unsubscribe()
+    }
+  }, [])
+
+  // Fetch unread notifications count
+  const fetchUnreadCount = async (userId: string) => {
+    try {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_read", false)
+
+      if (error) {
+        console.error("Error fetching unread count:", error)
+        return
+      }
+
+      setUnreadCount(count || 0)
+    } catch (error) {
+      console.error("Error:", error)
+    }
+  }
+
+  // Set up real-time subscription for notifications
+  useEffect(() => {
+    if (!user?.id) return
+
+    const channel = supabase
+      .channel("notifications")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log("Notification change:", payload)
+          // Refetch unread count when notifications change
+          fetchUnreadCount(user.id)
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user?.id])
+
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    // Redirect to login or home after logout
-    window.location.href = '/'; // or '/'
-  };
+    await supabase.auth.signOut()
+    window.location.href = "/"
+  }
 
   const routes = [
     { href: "/", label: "Home" },
@@ -79,8 +141,18 @@ export default function Navbar() {
 
           {isAuthenticated ? (
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon">
-                <Bell className="h-5 w-5" />
+              <Button variant="outline" size="icon" className="relative" asChild>
+                <Link href="/notifications">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
+                    >
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </Badge>
+                  )}
+                </Link>
               </Button>
 
               <DropdownMenu>
@@ -98,6 +170,16 @@ export default function Navbar() {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard">Dashboard</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/notifications">
+                      Notifications
+                      {unreadCount > 0 && (
+                        <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 text-xs">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </Badge>
+                      )}
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -151,8 +233,18 @@ export default function Navbar() {
 
               {isAuthenticated ? (
                 <div className="flex items-center gap-4">
-                  <Button variant="ghost" size="icon">
-                    <Bell className="h-5 w-5" />
+                  <Button variant="outline" size="icon" className="relative" asChild>
+                    <Link href="/notifications">
+                      <Bell className="h-5 w-5" />
+                      {unreadCount > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
+                        >
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </Badge>
+                      )}
+                    </Link>
                   </Button>
                   <Link href="/profile">
                     <Avatar className="h-8 w-8">

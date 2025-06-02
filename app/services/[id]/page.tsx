@@ -19,6 +19,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { ArrowLeft, Star, Mail, MessageCircle, DollarSign, User, Calendar, Clock } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
@@ -69,6 +80,9 @@ export default function ServiceDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [contactDialogOpen, setContactDialogOpen] = useState(false)
+  const [contactMessage, setContactMessage] = useState("")
+  const [sendingMessage, setSendingMessage] = useState(false)
 
   const supabase = createClientComponentClient()
 
@@ -154,9 +168,56 @@ export default function ServiceDetailPage() {
     }
   }, [serviceId])
 
-  const handleContactFreelancer = () => {
-    if (freelancerProfile?.email) {
-      window.location.href = `mailto:${freelancerProfile.email}?subject=Interested in ${service?.service_name}`
+  const handleContactFreelancer = async () => {
+    if (!currentUser) {
+      alert("Please sign in to contact the freelancer")
+      return
+    }
+
+    if (!contactMessage.trim()) {
+      alert("Please enter a message")
+      return
+    }
+
+    setSendingMessage(true)
+
+    try {
+      // Get sender's profile
+      const { data: senderProfile } = await supabase
+        .from("client")
+        .select("full_name")
+        .eq("user_id", currentUser.id)
+        .single()
+
+      // Create notification
+      const { error } = await supabase.from("notifications").insert({
+        user_id: service?.freelancer_id,
+        type: "service_inquiry",
+        title: `New inquiry about "${service?.service_name}"`,
+        message: contactMessage.trim(),
+        metadata: {
+          service_id: serviceId,
+          service_name: service?.service_name,
+          sender_id: currentUser.id,
+          sender_name: senderProfile?.full_name || "Unknown User",
+        },
+        is_read: false,
+      })
+
+      if (error) {
+        console.error("Error sending notification:", error)
+        alert("Failed to send message. Please try again.")
+        return
+      }
+
+      alert("Message sent successfully!")
+      setContactDialogOpen(false)
+      setContactMessage("")
+    } catch (error) {
+      console.error("Error:", error)
+      alert("An unexpected error occurred. Please try again.")
+    } finally {
+      setSendingMessage(false)
     }
   }
 
@@ -400,13 +461,46 @@ export default function ServiceDetailPage() {
                 <CardDescription>Ready to work with {freelancerProfile?.full_name}?</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button onClick={handleContactFreelancer} className="w-full">
-                  <Mail className="mr-2 h-4 w-4" />
-                  Contact Freelancer
-                </Button>
+                <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full">
+                      <MessageCircle className="mr-2 h-4 w-4" />
+                      Contact Freelancer
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Contact {freelancerProfile?.full_name}</DialogTitle>
+                      <DialogDescription>
+                        Send a message about "{service.service_name}". They'll receive a notification with your inquiry.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="message">Your Message</Label>
+                        <Textarea
+                          id="message"
+                          placeholder="Hi! I'm interested in your service. Could you tell me more about..."
+                          value={contactMessage}
+                          onChange={(e) => setContactMessage(e.target.value)}
+                          rows={4}
+                        />
+                        <p className="text-sm text-muted-foreground">{contactMessage.length}/500 characters</p>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setContactDialogOpen(false)} disabled={sendingMessage}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleContactFreelancer} disabled={sendingMessage || !contactMessage.trim()}>
+                        {sendingMessage ? "Sending..." : "Send Message"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
                 <Button variant="outline" className="w-full" disabled>
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  Start Chat (Coming Soon)
+                  <Mail className="mr-2 h-4 w-4" />
+                  Email (Coming Soon)
                 </Button>
               </CardContent>
             </Card>
