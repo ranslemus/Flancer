@@ -28,7 +28,7 @@ export default function Home() {
               </div>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
                 <Button asChild size="lg" className="gap-1">
-                  <Link href="/signup">
+                  <Link href="/auth/login">
                     Offer Your Services <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
