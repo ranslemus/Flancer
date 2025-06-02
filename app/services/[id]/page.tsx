@@ -1,15 +1,6 @@
 "use client"
 
-// DYNAMIC ROUTING EXPLANATION:
-// File path: app/services/[id]/page.tsx
-// URL: http://localhost:3000/services/ea86f2e3-2e28-48c9-ba3b-7a1163184dcc
-//
-// The [id] in the folder name creates a dynamic route parameter
-// Next.js automatically captures "ea86f2e3-2e28-48c9-ba3b-7a1163184dcc"
-// and makes it available as params.id
-//
-// So when someone visits /services/ea86f2e3-2e28-48c9-ba3b-7a1163184dcc
-// → params.id = "ea86f2e3-2e28-48c9-ba3b-7a1163184dcc"
+import { DialogTrigger } from "@/components/ui/dialog"
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -28,7 +19,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { ArrowLeft, Star, Mail, MessageCircle, DollarSign, User, Calendar, Clock } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -65,13 +55,7 @@ interface ClientData {
 export default function ServiceDetailPage() {
   const params = useParams()
   const router = useRouter()
-
-  // This extracts the ID from the URL
-  // URL: /services/ea86f2e3-2e28-48c9-ba3b-7a1163184dcc
-  // Result: serviceId = "ea86f2e3-2e28-48c9-ba3b-7a1163184dcc"
   const serviceId = params.id as string
-
-  console.log("Service ID from URL:", serviceId) // Debug log to see the extracted ID
 
   const [service, setService] = useState<ServiceData | null>(null)
   const [freelancer, setFreelancer] = useState<FreelancerData | null>(null)
@@ -96,21 +80,16 @@ export default function ServiceDetailPage() {
           data: { user },
         } = await supabase.auth.getUser()
         setCurrentUser(user)
-        console.log("👤 Current user:", user?.id)
 
-        // Fetch service data with better error handling
+        // Fetch service data
         const { data: serviceData, error: serviceError } = await supabase
           .from("serviceList")
           .select("*")
           .eq("service_id", serviceId)
           .single()
 
-        console.log("📊 Service query result:", { serviceData, serviceError })
-
         if (serviceError) {
           console.error("❌ Service error details:", serviceError)
-
-          // Check if it's a "not found" error vs other errors
           if (serviceError.code === "PGRST116") {
             setError(`Service with ID ${serviceId} not found in database`)
           } else {
@@ -120,37 +99,29 @@ export default function ServiceDetailPage() {
         }
 
         if (!serviceData) {
-          console.error("❌ No service data returned")
           setError("No service data found")
           return
         }
 
-        console.log("✅ Service found:", serviceData.service_name)
         setService(serviceData)
 
         // Fetch freelancer data
-        console.log("🔍 Fetching freelancer data for:", serviceData.freelancer_id)
         const { data: freelancerData, error: freelancerError } = await supabase
           .from("freelancer")
           .select("*")
           .eq("user_id", serviceData.freelancer_id)
           .single()
 
-        console.log("👨‍💼 Freelancer query result:", { freelancerData, freelancerError })
-
         if (!freelancerError && freelancerData) {
           setFreelancer(freelancerData)
         }
 
         // Fetch freelancer profile data
-        console.log("🔍 Fetching profile data for:", serviceData.freelancer_id)
         const { data: profileData, error: profileError } = await supabase
           .from("client")
           .select("*")
           .eq("user_id", serviceData.freelancer_id)
           .single()
-
-        console.log("👤 Profile query result:", { profileData, profileError })
 
         if (!profileError && profileData) {
           setFreelancerProfile(profileData)
@@ -179,43 +150,60 @@ export default function ServiceDetailPage() {
       return
     }
 
+    if (contactMessage.length > 500) {
+      alert("Message is too long. Please keep it under 500 characters.")
+      return
+    }
+
     setSendingMessage(true)
 
     try {
       // Get sender's profile
-      const { data: senderProfile } = await supabase
+      const { data: senderProfile, error: profileError } = await supabase
         .from("client")
         .select("full_name")
         .eq("user_id", currentUser.id)
         .single()
 
-      // Create notification
-      const { error } = await supabase.from("notifications").insert({
+      if (profileError) {
+        console.warn("Could not fetch sender profile:", profileError)
+      }
+
+      // Create notification for job inquiry with service price range
+      const notificationData = {
         user_id: service?.freelancer_id,
-        type: "service_inquiry",
-        title: `New inquiry about "${service?.service_name}"`,
+        type: "job_inquiry",
+        title: `New job inquiry for "${service?.service_name}"`,
         message: contactMessage.trim(),
         metadata: {
           service_id: serviceId,
           service_name: service?.service_name,
-          sender_id: currentUser.id,
-          sender_name: senderProfile?.full_name || "Unknown User",
+          service_price_range: service?.price_range, // Include price range for negotiation
+          client_id: currentUser.id,
+          client_name: senderProfile?.full_name || "Unknown User",
+          inquiry_message: contactMessage.trim(),
         },
         is_read: false,
-      })
-
-      if (error) {
-        console.error("Error sending notification:", error)
-        alert("Failed to send message. Please try again.")
-        return
       }
 
-      alert("Message sent successfully!")
+      // Send notification directly without additional validation since we're already checking above
+      const { data: notificationResult, error: notificationError } = await supabase
+        .from("notifications")
+        .insert(notificationData)
+        .select()
+
+      if (notificationError) {
+        console.error("❌ Notification error details:", notificationError)
+        throw new Error(`Failed to send notification: ${notificationError.message}`)
+      }
+
+      alert("Job inquiry sent successfully! The freelancer will respond with job details and pricing.")
       setContactDialogOpen(false)
       setContactMessage("")
     } catch (error) {
-      console.error("Error:", error)
-      alert("An unexpected error occurred. Please try again.")
+      console.error("💥 Error sending inquiry:", error)
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred"
+      alert(`Failed to send inquiry: ${errorMessage}`)
     } finally {
       setSendingMessage(false)
     }
@@ -267,15 +255,6 @@ export default function ServiceDetailPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Service Not Found</h1>
           <p className="text-muted-foreground mb-4">{error || "The service you're looking for doesn't exist."}</p>
-
-          {/* Debug information */}
-          <div className="bg-muted p-4 rounded-lg mb-6 text-left max-w-md mx-auto">
-            <h3 className="font-semibold mb-2">Debug Info:</h3>
-            <p className="text-sm">Service ID: {serviceId}</p>
-            <p className="text-sm">Error: {error || "No error message"}</p>
-            <p className="text-sm">Service Data: {service ? "Found" : "Not found"}</p>
-          </div>
-
           <div className="space-x-4">
             <Button asChild>
               <Link href="/dashboard">Back to Dashboard</Link>
@@ -465,14 +444,15 @@ export default function ServiceDetailPage() {
                   <DialogTrigger asChild>
                     <Button className="w-full">
                       <MessageCircle className="mr-2 h-4 w-4" />
-                      Contact Freelancer
+                      Send Job Inquiry
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                       <DialogTitle>Contact {freelancerProfile?.full_name}</DialogTitle>
                       <DialogDescription>
-                        Send a message about "{service.service_name}". They'll receive a notification with your inquiry.
+                        Send a job inquiry about "{service.service_name}". The freelancer will receive your message and
+                        can respond with job details including timeline and final pricing.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
