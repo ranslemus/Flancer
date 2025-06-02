@@ -270,7 +270,7 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold tracking-tight">{clientData.full_name}</h1>
             <Button variant="outline" asChild>
-              <Link href="/profile/edit">
+              <Link href="/edit-profile">
                 <Edit className="mr-2 h-4 w-4" />
                 Edit Profile
               </Link>
