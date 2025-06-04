@@ -88,7 +88,7 @@ export default function EditProfile() {
         .from("client")
         .update({
           full_name: formData.full_name,
-        //   updated_at: new Date().toISOString(),
+          //   updated_at: new Date().toISOString(),
         })
         .eq("user_id", session.user.id)
 
@@ -228,11 +228,17 @@ export default function EditProfile() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Account Created:</span>
-              <span>{new Date(session.user.created_at).toLocaleDateString()}</span>
+              <span>
+                {session.user.created_at ? new Date(session.user.created_at).toLocaleDateString() : "Not available"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Last Sign In:</span>
-              <span>{new Date(session.user.last_sign_in_at).toLocaleDateString()}</span>
+              <span>
+                {session.user.last_sign_in_at
+                  ? new Date(session.user.last_sign_in_at).toLocaleDateString()
+                  : "Not available"}
+              </span>
             </div>
           </div>
         </CardContent>
