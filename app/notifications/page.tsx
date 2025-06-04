@@ -481,7 +481,7 @@ export default function NotificationsPage() {
       await fetchNotifications(user.id)
     } catch (error) {
       console.error("Error sending counter offer:", error)
-      alert(`Failed to send counter offer: ${error.message}`)
+      alert(`Failed to send counter offer: ${error}`)
     } finally {
       setSubmitting(false)
     }
@@ -635,7 +635,7 @@ export default function NotificationsPage() {
           console.warn("Failed to send job creation notifications:", notificationError)
         }
 
-        alert(`🎉 Both parties agreed! Job has been created successfully. Job ID: ${jobResult.jobId}`)
+        alert(`Both parties agreed! Job has been created successfully. Job ID: ${jobResult.jobId}`)
 
         // Redirect to the job page
         window.location.href = `/jobs/${jobResult.jobId}`
@@ -644,36 +644,37 @@ export default function NotificationsPage() {
         const otherUserType = userType === "client" ? "freelancer" : "client"
 
         await sendNotification({
-          user_id: otherUserId,
-          type: "agreement_pending",
-          title: `Agreement pending for "${notification.metadata.service_name}"`,
-          message: `The ${userType} has agreed to $${proposedPrice}. Waiting for your agreement to create the job.`,
-          metadata: {
-            negotiation_id: negotiationId,
-            service_id: notification.metadata.service_id,
-            service_name: notification.metadata.service_name,
-            service_price_range: negotiationData.service_price_range || notification.metadata.service_price_range,
-            proposed_price: proposedPrice,
-            agreed_by: userType,
-            waiting_for: otherUserType,
-            freelancer_id: negotiationData.freelancer_id,
-            client_id: negotiationData.client_id,
-          },
-        })
+            user_id: otherUserId,
+            type: "agreement_pending",
+            title: `Agreement pending for "${notification.metadata.service_name}"`,
+            message: `The ${userType} has agreed to $${proposedPrice}. Waiting for your agreement to create the job.`,
+            metadata: {
+              negotiation_id: negotiationId,
+              service_id: notification.metadata.service_id,
+              service_name: notification.metadata.service_name,
+              service_price_range: negotiationData.service_price_range || notification.metadata.service_price_range,
+              proposed_price: proposedPrice,
+              agreed_by: userType,
+              waiting_for: otherUserType,
+              freelancer_id: negotiationData.freelancer_id,
+              client_id: negotiationData.client_id,
+            },
+          })
 
-        alert(`You agreed to $${proposedPrice}. Waiting for the other party to agree.`)
-      }
+          alert(`You agreed to $${proposedPrice}. Waiting for the other party to agree.`)
+        }
 
-      // Refresh notifications
-      await fetchNotifications(user.id)
-    } catch (error) {
-      console.error("Error agreeing to price:", error)
-      const errorMessage = error instanceof Error ? error.message : "Failed to agree to price"
-      setErrorMessage(errorMessage)
-      alert(`Error: ${errorMessage}`)
-    } finally {
-      setSubmitting(false)
-    }
+        // Refresh notifications
+      await fetchNotifications(user.id);
+      } 
+
+    }catch (error) {
+    console.error("Error agreeing to price:", error)
+    const errorMessage = error instanceof Error ? error.message : "Failed to agree to price"
+    setErrorMessage(errorMessage)
+    alert(`Error: ${errorMessage}`)
+  } finally {
+    setSubmitting(false)
   }
 
   const handleDeclineOffer = async (notification: Notification) => {
