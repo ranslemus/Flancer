@@ -1,200 +1,116 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ArrowLeft, Save, User } from "lucide-react"
-import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
+import { ArrowLeft, Save, User, Loader2 } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { toast } from "@/hooks/use-toast"
 
 export default function EditProfile() {
-  const session = useSession()
-  const supabase = useSupabaseClient()
   const router = useRouter()
+  const supabase = createClientComponentClient()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [client, setClient] = useState(null)
-  const [sessionLoading, setSessionLoading] = useState(true)
-  const [userMetadata, setUserMetadata] = useState(null)
+  const [user, setUser] = useState(null)
+  const [clientData, setClientData] = useState(null)
+  const [freelancerData, setFreelancerData] = useState(null)
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
     role: "",
+    bio: "",
   })
-  const [navigating, setNavigating] = useState(false)
 
-  // Use refs to prevent unnecessary re-renders and race conditions
-  const isInitialized = useRef(false)
-  const authSubscription = useRef(null)
-  const loadingTimeout = useRef(null)
-
-  // Handle session loading and user metadata
+  // Fetch user session and profile data
   useEffect(() => {
-    let isMounted = true
-
-    const initializeSession = async () => {
-      if (isInitialized.current) return
-
+    const fetchUserData = async () => {
       try {
-        // Clear any existing timeout
-        if (loadingTimeout.current) {
-          clearTimeout(loadingTimeout.current)
-        }
+        setLoading(true)
 
-        // Set a timeout to prevent infinite loading
-        loadingTimeout.current = setTimeout(() => {
-          if (isMounted) {
-            setSessionLoading(false)
-            setLoading(false)
-          }
-        }, 10000) // 10 second timeout
-
+        // Get current user
         const {
-          data: { session: currentSession },
-        } = await supabase.auth.getSession()
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
 
-        if (currentSession?.user && isMounted) {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser()
-
-          if (isMounted) {
-            setUserMetadata(user)
-            setSessionLoading(false)
-            isInitialized.current = true
-          }
-        } else if (isMounted) {
-          setSessionLoading(false)
-          isInitialized.current = true
+        if (userError) {
+          console.error("Error fetching user:", userError)
+          toast({
+            title: "Error",
+            description: "Failed to load user data",
+            variant: "destructive",
+          })
+          router.push("/auth/login")
+          return
         }
 
-        // Clear the timeout since we completed successfully
-        if (loadingTimeout.current) {
-          clearTimeout(loadingTimeout.current)
-          loadingTimeout.current = null
+        if (!user) {
+          router.push("/auth/login")
+          return
         }
-      } catch (error) {
-        console.error("Error initializing session:", error)
-        if (isMounted) {
-          setSessionLoading(false)
-          setLoading(false)
-        }
-      }
-    }
 
-    // Only initialize if we don't have a session yet or if it's the first load
-    if (!isInitialized.current) {
-      initializeSession()
-    }
+        setUser(user)
 
-    // Set up auth state listener with debouncing
-    if (!authSubscription.current) {
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-        // Only handle significant auth events, ignore token refresh
-        if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
-          if (newSession?.user && isMounted) {
-            try {
-              const {
-                data: { user },
-              } = await supabase.auth.getUser()
-
-              if (isMounted) {
-                setUserMetadata(user)
-              }
-            } catch (error) {
-              console.error("Error updating user metadata:", error)
-            }
-          } else if (event === "SIGNED_OUT" && isMounted) {
-            setUserMetadata(null)
-          }
-        }
-      })
-
-      authSubscription.current = subscription
-    }
-
-    return () => {
-      isMounted = false
-      if (loadingTimeout.current) {
-        clearTimeout(loadingTimeout.current)
-      }
-    }
-  }, [supabase])
-
-  // Handle visibility change to prevent unnecessary reloads
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      // Don't do anything special on visibility change
-      // Let the existing session management handle it
-    }
-
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-    }
-  }, [])
-
-  // Fetch client data
-  useEffect(() => {
-    const fetchClientData = async () => {
-      if (!session?.user || loading === false) return
-
-      setLoading(true)
-      try {
-        const { data, error } = await supabase
+        // Fetch client profile data
+        const { data: client, error: clientError } = await supabase
           .from("client")
           .select("full_name, role")
-          .eq("user_id", session.user.id)
+          .eq("user_id", user.id)
           .single()
 
-        if (error) {
-          console.error("Error fetching client info:", error.message)
+        if (clientError && clientError.code !== "PGRST116") {
+          console.error("Error fetching client data:", clientError)
           toast({
             title: "Error",
             description: "Failed to load profile data",
             variant: "destructive",
           })
         } else {
-          setClient(data)
-          setFormData({
-            full_name: data.full_name || "",
-            email: session.user.email || "",
-            role: data.role || "",
-          })
+          setClientData(client)
         }
+
+        // Fetch freelancer data (for bio)
+        const { data: freelancer, error: freelancerError } = await supabase
+          .from("freelancer")
+          .select("bio")
+          .eq("user_id", user.id)
+          .single()
+
+        if (freelancerError && freelancerError.code !== "PGRST116") {
+          console.error("Error fetching freelancer data:", freelancerError)
+          // Don't show toast for this error as the user might not be a freelancer
+        } else if (freelancer) {
+          setFreelancerData(freelancer)
+        }
+
+        // Combine data from both tables
+        setFormData({
+          full_name: client?.full_name || "",
+          email: user.email || "",
+          role: client?.role || "",
+          bio: freelancer?.bio || "",
+        })
       } catch (error) {
-        console.error("Error:", error)
+        console.error("Error in fetchUserData:", error)
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred",
+          variant: "destructive",
+        })
       } finally {
         setLoading(false)
       }
     }
 
-    // Only fetch if session is ready and we're not already loading
-    if (!sessionLoading && session && isInitialized.current) {
-      fetchClientData()
-    }
-  }, [session, sessionLoading, supabase])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (authSubscription.current) {
-        authSubscription.current.unsubscribe()
-        authSubscription.current = null
-      }
-      if (loadingTimeout.current) {
-        clearTimeout(loadingTimeout.current)
-      }
-    }
-  }, [])
+    fetchUserData()
+  }, [supabase, router])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -207,7 +123,7 @@ export default function EditProfile() {
   const handleSave = async (e) => {
     e.preventDefault()
 
-    if (!session?.user) {
+    if (!user) {
       toast({
         title: "Error",
         description: "You must be logged in to update your profile",
@@ -216,17 +132,66 @@ export default function EditProfile() {
       return
     }
 
+    // Validate required fields
+    if (!formData.full_name.trim()) {
+      toast({
+        title: "Error",
+        description: "Full name is required",
+        variant: "destructive",
+      })
+      return
+    }
+
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from("client")
-        .update({
-          full_name: formData.full_name,
-        })
-        .eq("user_id", session.user.id)
+      // Update client table
+      const clientUpdateData = {
+        full_name: formData.full_name.trim(),
+        created_at: new Date().toISOString(),
+      }
 
-      if (error) {
-        throw error
+      const { error: clientError } = await supabase.from("client").update(clientUpdateData).eq("user_id", user.id)
+
+      if (clientError) {
+        throw clientError
+      }
+
+      // Update freelancer table if the user is a freelancer
+      if (formData.role === "freelancer" || freelancerData) {
+        // Check if freelancer record exists
+        const { data: existingFreelancer, error: checkError } = await supabase
+          .from("freelancer")
+          .select("user_id")
+          .eq("user_id", user.id)
+          .single()
+
+        if (checkError && checkError.code !== "PGRST116") {
+          console.error("Error checking freelancer record:", checkError)
+        }
+
+        if (existingFreelancer) {
+          // Update existing freelancer record
+          const { error: freelancerError } = await supabase
+            .from("freelancer")
+            .update({ bio: formData.bio.trim() })
+            .eq("user_id", user.id)
+
+          if (freelancerError) {
+            console.error("Error updating freelancer bio:", freelancerError)
+            // Don't throw here, we already updated the client table successfully
+          }
+        } else if (formData.role === "freelancer") {
+          // Create new freelancer record if user is a freelancer but record doesn't exist
+          const { error: createError } = await supabase.from("freelancer").insert({
+            user_id: user.id,
+            bio: formData.bio.trim(),
+          })
+
+          if (createError) {
+            console.error("Error creating freelancer record:", createError)
+            // Don't throw here, we already updated the client table successfully
+          }
+        }
       }
 
       toast({
@@ -234,14 +199,13 @@ export default function EditProfile() {
         description: "Profile updated successfully",
       })
 
-      // Set navigating state before redirect
-      setNavigating(true)
+      // Redirect back to dashboard after successful update
       router.push("/dashboard")
     } catch (error) {
       console.error("Error updating profile:", error)
       toast({
         title: "Error",
-        description: "Failed to update profile. Please try again.",
+        description: error.message || "Failed to update profile. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -251,42 +215,42 @@ export default function EditProfile() {
 
   const formatDate = (dateString) => {
     if (!dateString) return "Not available"
+
     try {
       const date = new Date(dateString)
-      if (isNaN(date.getTime())) return "Not available"
-      return date.toLocaleDateString()
-    } catch {
+      if (isNaN(date.getTime())) {
+        return "Not available"
+      }
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    } catch (error) {
+      console.error("Error formatting date:", error)
       return "Not available"
     }
   }
 
-  // Show loading only if we're actually loading and haven't timed out
-  if (sessionLoading && isInitialized.current === false) {
-    return (
-      <div className="container px-4 py-8 md:px-6 md:py-12">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading session...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "Not available"
 
-  if (!session) {
-    return (
-      <div className="container px-4 py-8 md:px-6 md:py-12">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <p className="text-muted-foreground mb-4">Please log in to edit your profile.</p>
-            <Button asChild>
-              <Link href="/login">Go to Login</Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        return "Not available"
+      }
+      return date.toLocaleString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    } catch (error) {
+      console.error("Error formatting datetime:", error)
+      return "Not available"
+    }
   }
 
   if (loading) {
@@ -294,7 +258,7 @@ export default function EditProfile() {
       <div className="container px-4 py-8 md:px-6 md:py-12">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto mb-4" />
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Loading profile data...</p>
           </div>
         </div>
@@ -302,25 +266,31 @@ export default function EditProfile() {
     )
   }
 
-  // Use userMetadata if available, fallback to session.user
-  const userData = userMetadata || session.user
+  if (!user) {
+    return (
+      <div className="container px-4 py-8 md:px-6 md:py-12">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <p className="text-muted-foreground mb-4">Please log in to edit your profile.</p>
+            <Button asChild>
+              <Link href="/auth/login">Go to Login</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="container px-4 py-8 md:px-6 md:py-12 max-w-2xl mx-auto">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setNavigating(true)
-              router.push("/dashboard")
-            }}
-            disabled={saving || navigating}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Dashboard
+            </Link>
           </Button>
         </div>
 
@@ -365,15 +335,55 @@ export default function EditProfile() {
                 onChange={handleInputChange}
                 placeholder="Enter your full name"
                 required
+                maxLength={100}
               />
             </div>
+
+            {/* Bio Field - Only show for freelancers */}
+            {(formData.role === "freelancer" || freelancerData) && (
+              <div className="space-y-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea
+                  id="bio"
+                  name="bio"
+                  value={formData.bio}
+                  onChange={handleInputChange}
+                  placeholder="Tell us about yourself, your skills, and experience..."
+                  rows={4}
+                  className="resize-none"
+                  maxLength={500}
+                />
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-muted-foreground">
+                    Share your professional background, skills, and what makes you unique.
+                  </p>
+                  <p className="text-xs text-muted-foreground">{formData.bio.length}/500 characters</p>
+                </div>
+              </div>
+            )}
+
+            {/* Role Field (Read-only) */}
+            {formData.role && (
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Input
+                  id="role"
+                  name="role"
+                  type="text"
+                  value={formData.role}
+                  disabled
+                  className="bg-muted capitalize"
+                />
+                <p className="text-xs text-muted-foreground">Your account role cannot be changed.</p>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <Button type="submit" disabled={saving} className="flex-1">
                 {saving ? (
                   <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Saving...
                   </>
                 ) : (
@@ -383,16 +393,8 @@ export default function EditProfile() {
                   </>
                 )}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  router.push("/dashboard")
-                }}
-                disabled={saving}
-              >
-                Cancel
+              <Button type="button" variant="outline" asChild className="flex-1">
+                <Link href="/dashboard">Cancel</Link>
               </Button>
             </div>
           </form>
@@ -408,15 +410,21 @@ export default function EditProfile() {
           <div className="space-y-4 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">User ID:</span>
-              <span className="font-mono text-xs">{userData.id}</span>
+              <span className="font-mono text-xs">{user.id}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Account Created:</span>
-              <span>{formatDate(userData.created_at)}</span>
+              <span>{formatDate(user.created_at)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Last Sign In:</span>
-              <span>{formatDate(userData.last_sign_in_at)}</span>
+              <span>{formatDateTime(user.last_sign_in_at)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Email Verified:</span>
+              <span className={user.email_confirmed_at ? "text-green-600" : "text-orange-600"}>
+                {user.email_confirmed_at ? "Yes" : "No"}
+              </span>
             </div>
           </div>
         </CardContent>

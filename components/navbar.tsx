@@ -7,7 +7,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Search, Menu, X, Bell } from "lucide-react"
+import { Search, Menu, X, Bell } from 'lucide-react'
 import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -148,7 +148,7 @@ export default function Navbar() {
                   {unreadCount > 0 && (
                     <Badge
                       variant="destructive"
-                      className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 m-0 flex items-center justify-center text-xs font-bold leading-none"
                     >
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </Badge>
@@ -176,7 +176,10 @@ export default function Navbar() {
                     <Link href="/notifications">
                       Notifications
                       {unreadCount > 0 && (
-                        <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 text-xs">
+                        <Badge
+                          variant="destructive"
+                          className="ml-2 h-6 w-6 rounded-full p-0 m-0 flex items-center justify-center text-xs font-bold leading-none"
+                        >
                           {unreadCount > 99 ? "99+" : unreadCount}
                         </Badge>
                       )}
@@ -240,7 +243,7 @@ export default function Navbar() {
                       {unreadCount > 0 && (
                         <Badge
                           variant="destructive"
-                          className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
+                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 m-0 flex items-center justify-center text-xs font-bold leading-none"
                         >
                           {unreadCount > 99 ? "99+" : unreadCount}
                         </Badge>
