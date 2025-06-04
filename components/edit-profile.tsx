@@ -191,6 +191,18 @@ export default function EditProfile() {
                 required
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Bio *</Label>
+              <Input
+                id="full_name"
+                name="full_name"
+                type="text"
+                value={formData.bio}
+                onChange={handleInputChange}
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
