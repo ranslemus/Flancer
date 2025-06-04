@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Plus, X, Upload, ImageIcon } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI } from "@google/generative-ai"
 import Link from "next/link"
 
 interface ServiceFormData {
@@ -45,8 +45,10 @@ export default function AddServicePage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [newCategory, setNewCategory] = useState("")
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [formData, setFormData] = useState<ServiceFormData>({
     service_name: "",
     price_range: [0, 0],
@@ -61,39 +63,65 @@ export default function AddServicePage() {
 
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser()
 
-      if (user) {
-        setUser(user)
-        // Verify user is a freelancer
-        const { data: clientData } = await supabase.from("client").select("role").eq("user_id", user.id).single()
-
-        if (clientData?.role !== "freelancer") {
-          router.push("/dashboard")
+        if (authError) {
+          console.error("Auth error:", authError)
+          setLoading(false)
+          router.push("/auth/login")
           return
         }
-      } else {
+
+        if (user) {
+          setUser(user)
+          // Verify user is a freelancer
+          const { data: clientData, error: clientError } = await supabase
+            .from("client")
+            .select("role")
+            .eq("user_id", user.id)
+            .single()
+
+          if (clientError) {
+            console.error("Client data error:", clientError)
+            setLoading(false)
+            router.push("/dashboard")
+            return
+          }
+
+          if (clientData?.role !== "freelancer") {
+            router.push("/dashboard")
+            return
+          }
+        } else {
+          router.push("/auth/login")
+          return
+        }
+        setLoading(false)
+      } catch (error) {
+        console.error("Error in getUser:", error)
+        setLoading(false)
         router.push("/auth/login")
-        return
       }
-      setLoading(false)
     }
     getUser()
   }, [])
+
   // Initialize Gemini AI
-  const genAI = new GoogleGenerativeAI('AIzaSyDGrepRgEhtOlRfEXcaWNCiqKOO6T1x-fg')
+  const genAI = new GoogleGenerativeAI("AIzaSyDGrepRgEhtOlRfEXcaWNCiqKOO6T1x-fg")
 
   const enhanceWithAI = async () => {
     if (!formData.service_name.trim() && !formData.service_description.trim()) {
-      alert('Please enter at least a service name or description to enhance')
+      alert("Please enter at least a service name or description to enhance")
       return
     }
 
     setEnhancing(true)
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
 
       const prompt = `
   You are a professional copywriter helping freelancers improve their service listings. Based on the following service information, enhance and improve the content to be more professional, compelling, and attractive to potential clients.
@@ -119,52 +147,47 @@ export default function AddServicePage() {
       const rawText = response.text()
 
       // Remove markdown formatting if present
-      const cleanedText = rawText.replace(/```(?:json)?\n?([\s\S]*?)```/, '$1').trim()
+      const cleanedText = rawText.replace(/```(?:json)?\n?([\s\S]*?)```/, "$1").trim()
 
       try {
         const enhancedData = JSON.parse(cleanedText)
 
         if (enhancedData.enhanced_name) {
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
-            service_name: enhancedData.enhanced_name
+            service_name: enhancedData.enhanced_name,
           }))
         }
 
         if (enhancedData.enhanced_description) {
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
-            service_description: enhancedData.enhanced_description
+            service_description: enhancedData.enhanced_description,
           }))
         }
-
-
       } catch (parseError) {
-        console.error('Error parsing AI response:', parseError)
-  
+        console.error("Error parsing AI response:", parseError)
       }
-
     } catch (error) {
-      console.error('Error enhancing with AI:', error)
-      alert('Error enhancing content with AI. Please try again.')
+      console.error("Error enhancing with AI:", error)
+      alert("Error enhancing content with AI. Please try again.")
     } finally {
       setEnhancing(false)
     }
   }
 
-
   const suggestCategoriesWithAI = async () => {
     if (!formData.service_name.trim() && !formData.service_description.trim()) {
-      alert('Please enter a service name or description first')
+      alert("Please enter a service name or description first")
       return
     }
 
     setCategorizingAI(true)
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-      
-      const availableCategories = predefinedCategories.join(', ')
-      
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+
+      const availableCategories = predefinedCategories.join(", ")
+
       const prompt = `
       Analyze the following service information and suggest the most appropriate categories from the available list.
 
@@ -184,34 +207,31 @@ export default function AddServicePage() {
       const result = await model.generateContent(prompt)
       const response = await result.response
       const rawText = response.text()
-      const cleanedText = rawText.replace(/```(?:json)?\n?([\s\S]*?)```/, '$1').trim()
+      const cleanedText = rawText.replace(/```(?:json)?\n?([\s\S]*?)```/, "$1").trim()
       try {
         const suggestedCategories = JSON.parse(cleanedText)
-        
+
         if (Array.isArray(suggestedCategories)) {
           // Add suggested categories that aren't already selected
-          const newCategories = suggestedCategories.filter(cat => 
-            predefinedCategories.includes(cat) && !formData.category.includes(cat)
+          const newCategories = suggestedCategories.filter(
+            (cat) => predefinedCategories.includes(cat) && !formData.category.includes(cat),
           )
-          
+
           if (newCategories.length > 0) {
-            setFormData(prev => ({
+            setFormData((prev) => ({
               ...prev,
-              category: [...prev.category, ...newCategories]
+              category: [...prev.category, ...newCategories],
             }))
-   
           } else {
-            
           }
         }
       } catch (parseError) {
-        console.error('Error parsing AI response:', parseError)
-        alert('AI categorization completed but response format was unexpected. Please try again.')
+        console.error("Error parsing AI response:", parseError)
+        alert("AI categorization completed but response format was unexpected. Please try again.")
       }
-      
     } catch (error) {
-      console.error('Error suggesting categories with AI:', error)
-      alert('Error getting AI category suggestions. Please try again.')
+      console.error("Error suggesting categories with AI:", error)
+      alert("Error getting AI category suggestions. Please try again.")
     } finally {
       setCategorizingAI(false)
     }
@@ -240,19 +260,60 @@ export default function AddServicePage() {
     }))
   }
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Compress image to reduce size
+  const compressImage = (file: File, maxWidth = 800, quality = 0.8): Promise<string> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement("canvas")
+      const ctx = canvas.getContext("2d")
+      const img = new Image()
+
+      img.onload = () => {
+        // Calculate new dimensions
+        const ratio = Math.min(maxWidth / img.width, maxWidth / img.height)
+        canvas.width = img.width * ratio
+        canvas.height = img.height * ratio
+
+        // Draw and compress
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height)
+        const compressedDataUrl = canvas.toDataURL("image/jpeg", quality)
+        resolve(compressedDataUrl)
+      }
+
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const result = e.target?.result as string
-        setImagePreview(result)
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size must be less than 5MB")
+        return
+      }
+
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        alert("Please select a valid image file")
+        return
+      }
+
+      setImageFile(file)
+
+      try {
+        // Compress the image
+        const compressedImage = await compressImage(file)
+        setImagePreview(compressedImage)
+
+        // Store the compressed image data
         setFormData((prev) => ({
           ...prev,
-          service_pictures: result,
+          service_pictures: compressedImage,
         }))
+      } catch (error) {
+        console.error("Error processing image:", error)
+        alert("Error processing image. Please try again.")
       }
-      reader.readAsDataURL(file)
     }
   }
 
@@ -295,28 +356,46 @@ export default function AddServicePage() {
     setSubmitting(true)
 
     try {
+      // Insert the service without specifying service_id (let Supabase generate it)
       const { data, error } = await supabase
         .from("serviceList")
         .insert({
           freelancer_id: user.id,
           service_name: formData.service_name.trim(),
-          price_range: formData.price_range,
+          price_range: formData.price_range, // Keep as array
           service_description: formData.service_description.trim(),
           category: formData.category,
-          service_pictures: formData.service_pictures || null,
+          service_pictures: formData.service_pictures || null, // Use compressed image or null
         })
         .select()
 
       if (error) {
         console.error("Error creating service:", error)
-        alert("Error creating service. Please try again.")
+        alert(`Error creating service: ${error.message || "Please try again."}`)
         return
       }
 
+      // Get the service_id from the returned data
+      const service_id = data?.[0]?.service_id
+
+      if (service_id) {
+        // Update the freelancer record to link to this service
+        const { error: freelancerError } = await supabase
+          .from("freelancer")
+          .update({ services_id: service_id })
+          .eq("user_id", user.id)
+
+        if (freelancerError) {
+          console.error("Error updating freelancer record:", freelancerError)
+          // Don't block the user from proceeding if this fails
+        }
+      }
+
+      alert("Service created successfully!")
       router.push("/profile")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error:", error)
-      alert("An unexpected error occurred. Please try again.")
+      alert(`An unexpected error occurred: ${error.message || "Please try again."}`)
     } finally {
       setSubmitting(false)
     }
@@ -359,37 +438,36 @@ export default function AddServicePage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Service Name */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="service_name">Service Name *</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={enhanceWithAI}
-                    disabled={enhancing}
-                    className="text-xs"
-                  >
-                    {enhancing ? (
-                      <>
-                        <div className="animate-spin rounded-full h-3 w-3 border-b border-current mr-2"></div>
-                        Enhancing...
-                      </>
-                    ) : (
-                      <>✨ Enhance with AI</>
-                    )}
-                  </Button>
-                </div>
-                <Input
-                  id="service_name"
-                  placeholder="e.g., Custom Website Development"
-                  value={formData.service_name}
-                  onChange={(e) => handleInputChange("service_name", e.target.value)}
-                  required
-                />
+            {/* Service Name */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="service_name">Service Name *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={enhanceWithAI}
+                  disabled={enhancing}
+                  className="text-xs"
+                >
+                  {enhancing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b border-current mr-2"></div>
+                      Enhancing...
+                    </>
+                  ) : (
+                    <>✨ Enhance with AI</>
+                  )}
+                </Button>
               </div>
- 
+              <Input
+                id="service_name"
+                placeholder="e.g., Custom Website Development"
+                value={formData.service_name}
+                onChange={(e) => handleInputChange("service_name", e.target.value)}
+                required
+              />
+            </div>
 
             {/* Price Range */}
             <div className="space-y-2">
@@ -564,6 +642,7 @@ export default function AddServicePage() {
                     className="absolute top-2 right-2"
                     onClick={() => {
                       setImagePreview(null)
+                      setImageFile(null)
                       setFormData((prev) => ({ ...prev, service_pictures: "" }))
                     }}
                   >
@@ -590,7 +669,10 @@ export default function AddServicePage() {
                       className="hidden"
                     />
                     <p className="text-sm text-muted-foreground">
-                      Upload an image to showcase your service (JPG, PNG, GIF)
+                      Upload an image to showcase your service (JPG, PNG, GIF - Max 5MB)
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Images will be automatically compressed for optimal storage
                     </p>
                   </div>
                 </div>
