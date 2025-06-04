@@ -14,6 +14,7 @@ import { ArrowLeft, Plus, X, Upload, ImageIcon } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import Link from "next/link"
+import { v4 as uuidv4 } from "uuid"
 
 interface ServiceFormData {
   service_name: string
@@ -260,29 +261,6 @@ export default function AddServicePage() {
     }))
   }
 
-  // Compress image to reduce size
-  const compressImage = (file: File, maxWidth = 800, quality = 0.8): Promise<string> => {
-    return new Promise((resolve) => {
-      const canvas = document.createElement("canvas")
-      const ctx = canvas.getContext("2d")
-      const img = new Image()
-
-      img.onload = () => {
-        // Calculate new dimensions
-        const ratio = Math.min(maxWidth / img.width, maxWidth / img.height)
-        canvas.width = img.width * ratio
-        canvas.height = img.height * ratio
-
-        // Draw and compress
-        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height)
-        const compressedDataUrl = canvas.toDataURL("image/jpeg", quality)
-        resolve(compressedDataUrl)
-      }
-
-      img.src = URL.createObjectURL(file)
-    })
-  }
-
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
@@ -299,21 +277,126 @@ export default function AddServicePage() {
       }
 
       setImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
+    }
+  }
 
-      try {
-        // Compress the image
-        const compressedImage = await compressImage(file)
-        setImagePreview(compressedImage)
+  const uploadImageToStorage = async (file: File): Promise<string | null> => {
+    try {
+      setUploadingImage(true)
 
-        // Store the compressed image data
-        setFormData((prev) => ({
-          ...prev,
-          service_pictures: compressedImage,
-        }))
-      } catch (error) {
-        console.error("Error processing image:", error)
-        alert("Error processing image. Please try again.")
+      // Check if user is authenticated
+      if (!user?.id) {
+        throw new Error("User not authenticated")
       }
+
+      // Create a unique file name
+      const fileExt = file.name.split(".").pop()
+      const fileName = `${uuidv4()}.${fileExt}`
+      const filePath = `service-images/${user.id}/${fileName}`
+
+      console.log("Attempting to upload image:", {
+        fileName,
+        filePath,
+        fileSize: file.size,
+        fileType: file.type,
+        userId: user.id,
+      })
+
+      // First, check if the bucket exists and is accessible
+      console.log("Checking storage bucket access...")
+      const { data: buckets, error: bucketError } = await supabase.storage.listBuckets()
+
+      if (bucketError) {
+        console.error("Error accessing storage buckets:", bucketError)
+        // Try to proceed anyway - the bucket might exist but listBuckets might fail
+        console.log("Proceeding with upload despite bucket list error...")
+      } else {
+        console.log(
+          "Available buckets:",
+          buckets?.map((b) => b.name),
+        )
+        const serviceImagesBucket = buckets?.find((bucket) => bucket.name === "serviceimages")
+        if (!serviceImagesBucket) {
+          console.warn("serviceimages bucket not found in list, but attempting upload anyway...")
+          console.log("This might be due to permissions on listBuckets operation")
+        } else {
+          console.log("Found serviceimages bucket:", serviceImagesBucket)
+        }
+      }
+
+      // Try to upload regardless of bucket check result
+      console.log("Attempting upload to serviceimages bucket...")
+
+      // Upload to the serviceimages bucket with explicit options
+      const { data, error } = await supabase.storage.from("serviceimages").upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+      })
+
+      if (error) {
+        console.error("Upload error details:", {
+          message: error.message,
+          statusCode: error.statusCode,
+          error: error.error,
+          details: error,
+        })
+
+        // Handle specific errors
+        if (error.message.includes("row-level security policy")) {
+          throw new Error(
+            "Permission denied: Storage bucket requires proper access policies. " +
+              "Please check your Supabase storage policies or contact support.",
+          )
+        } else if (error.message.includes("not found") || error.statusCode === 404) {
+          throw new Error(
+            "Storage bucket 'serviceimages' not accessible. " +
+              "Please verify the bucket exists and has proper permissions in your Supabase dashboard.",
+          )
+        }
+        throw error
+      }
+
+      if (!data?.path) {
+        throw new Error("Upload succeeded but no file path returned")
+      }
+
+      // Get the public URL
+      const { data: urlData } = supabase.storage.from("serviceimages").getPublicUrl(filePath)
+
+      if (!urlData?.publicUrl) {
+        throw new Error("Failed to generate public URL for uploaded image")
+      }
+
+      console.log("Image uploaded successfully:", {
+        path: data.path,
+        publicUrl: urlData.publicUrl,
+      })
+
+      return urlData.publicUrl
+    } catch (error: any) {
+      console.error("Error uploading image:", {
+        message: error?.message || "Unknown error",
+        details: error,
+        errorCode: error?.code,
+        statusCode: error?.statusCode,
+      })
+
+      // Provide user-friendly error messages
+      let userMessage = "Failed to upload image: "
+      if (error?.message?.includes("row-level security policy")) {
+        userMessage += "Permission denied. Please contact support if this persists."
+      } else if (error?.message?.includes("not found")) {
+        userMessage += "Storage configuration issue. Please contact support."
+      } else {
+        userMessage += error?.message || "Unknown error occurred"
+      }
+
+      alert(userMessage)
+      return null
+    } finally {
+      setUploadingImage(false)
     }
   }
 
@@ -356,22 +439,37 @@ export default function AddServicePage() {
     setSubmitting(true)
 
     try {
-      // Insert the service without specifying service_id (let Supabase generate it)
-      const { data, error } = await supabase
-        .from("serviceList")
-        .insert({
-          freelancer_id: user.id,
-          service_name: formData.service_name.trim(),
-          price_range: formData.price_range, // Keep as array
-          service_description: formData.service_description.trim(),
-          category: formData.category,
-          service_pictures: formData.service_pictures || null, // Use compressed image or null
-        })
-        .select()
+      // First, upload the image to Supabase Storage if there is one
+      let imageUrl = null
+      if (imageFile) {
+        imageUrl = await uploadImageToStorage(imageFile)
+        if (!imageUrl) {
+          console.error("Image upload failed, continuing without image. Check upload function for details.")
+          // Don't show alert here since uploadImageToStorage already shows one
+        }
+      }
+
+      // Prepare service data
+      const serviceData = {
+        freelancer_id: user.id,
+        service_name: formData.service_name.trim(),
+        price_range: formData.price_range,
+        service_description: formData.service_description.trim(),
+        category: formData.category,
+        service_pictures: imageUrl || null, // Ensure null if no image URL
+      }
+
+      // Insert the service
+      const { data, error } = await supabase.from("serviceList").insert(serviceData).select()
 
       if (error) {
-        console.error("Error creating service:", error)
-        alert(`Error creating service: ${error.message || "Please try again."}`)
+        console.error("Error creating service:", {
+          message: error?.message || "Unknown error",
+          details: error,
+          errorCode: error?.code,
+          hint: error?.hint,
+        })
+        alert(`Error creating service: ${error?.message || error?.error_description || "Please try again."}`)
         return
       }
 
@@ -386,8 +484,17 @@ export default function AddServicePage() {
           .eq("user_id", user.id)
 
         if (freelancerError) {
-          console.error("Error updating freelancer record:", freelancerError)
-          // Don't block the user from proceeding if this fails
+          console.error("Error updating freelancer record:", {
+            message: freelancerError?.message || "Unknown error",
+            details: freelancerError,
+            errorCode: freelancerError?.code,
+            hint: freelancerError?.hint,
+            statusCode: freelancerError?.statusCode,
+          })
+          // Log but don't block the user since service was created successfully
+          console.warn(
+            "Service created successfully but failed to update freelancer record. This may need manual correction.",
+          )
         }
       }
 
@@ -671,9 +778,7 @@ export default function AddServicePage() {
                     <p className="text-sm text-muted-foreground">
                       Upload an image to showcase your service (JPG, PNG, GIF - Max 5MB)
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      Images will be automatically compressed for optimal storage
-                    </p>
+                    <p className="text-xs text-muted-foreground">Images will be stored securely in the cloud</p>
                   </div>
                 </div>
               )}
@@ -681,8 +786,15 @@ export default function AddServicePage() {
 
             {/* Submit Buttons */}
             <div className="flex gap-4 pt-6">
-              <Button type="submit" disabled={submitting} className="flex-1">
-                {submitting ? "Creating Service..." : "Create Service"}
+              <Button type="submit" disabled={submitting || uploadingImage} className="flex-1">
+                {submitting ? (
+                  <>
+                    {uploadingImage ? "Uploading Image..." : "Creating Service..."}
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current ml-2"></div>
+                  </>
+                ) : (
+                  "Create Service"
+                )}
               </Button>
               <Button type="button" variant="outline" onClick={() => router.push("/profile")} disabled={submitting}>
                 Cancel
