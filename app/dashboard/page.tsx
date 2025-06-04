@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Bell, Briefcase, Calendar, CheckCircle, DollarSign, PlusCircle, Star } from "lucide-react"
+import { Briefcase, Calendar, CheckCircle, DollarSign, PlusCircle, Star } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 // Types
@@ -266,9 +266,11 @@ export default function Dashboard() {
               </Button>
             )}
             {isFreelancer && (
-              <Button size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Post New Job
+              <Button size="sm" asChild>
+                <Link href="/add-service">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Post New Service
+                </Link>
               </Button>
             )}
           </div>
