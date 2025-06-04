@@ -45,7 +45,7 @@ import {
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import Link from "next/link"
 
-// Import the notification utilities at the top of the file
+// Import the notification utilities
 import { sendNotification, validateUser, createJobFromNegotiation } from "@/lib/notification-utils"
 import { ErrorAlert } from "@/components/error-alert"
 
@@ -188,14 +188,27 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        setUser(user)
-        await fetchNotifications(user.id)
-      } else {
-        window.location.href = "/auth/login"
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser()
+
+        if (error) {
+          console.error("Error getting user:", error)
+          setLoading(false)
+          return
+        }
+
+        if (user) {
+          setUser(user)
+          await fetchNotifications(user.id)
+        } else {
+          window.location.href = "/auth/login"
+        }
+      } catch (error) {
+        console.error("Error in getUser:", error)
+        setLoading(false)
       }
     }
     getUser()
@@ -565,7 +578,7 @@ export default function NotificationsPage() {
 
         if (bothAgreed) {
           // Both parties agreed - update negotiation
-          await supabase
+          const { error: updateError } = await supabase
             .from("price_negotiations")
             .update({
               status: "both_agreed",
@@ -574,94 +587,95 @@ export default function NotificationsPage() {
             })
             .eq("negotiation_id", negotiationId)
 
-        if (updateError) {
-          console.warn("Failed to update final negotiation status:", updateError)
-          // Don't fail the whole process for this
-        }
+          if (updateError) {
+            console.warn("Failed to update final negotiation status:", updateError)
+            // Don't fail the whole process for this
+          }
 
-        // Create the job using the utility function
-        console.log("Creating job from negotiation:", negotiationId)
+          // Create the job using the utility function
+          console.log("Creating job from negotiation:", negotiationId)
 
-        // Add debug info before job creation
-        await debugJobCreation(negotiationId)
+          // Add debug info before job creation
+          await debugJobCreation(negotiationId)
 
-        const jobResult = await createJobFromNegotiation(negotiationId)
+          const jobResult = await createJobFromNegotiation(negotiationId)
 
-        if (!jobResult.success) {
-          console.error("Job creation failed:", jobResult.error)
-          // Show more detailed error to user
-          alert(
-            `Failed to create job: ${jobResult.error}\n\nPlease check the browser console for more details and contact support if the issue persists.`,
-          )
-          throw new Error(jobResult.error || "Failed to create job")
-        }
+          if (!jobResult.success) {
+            console.error("Job creation failed:", jobResult.error)
+            // Show more detailed error to user
+            alert(
+              `Failed to create job: ${jobResult.error}\n\nPlease check the browser console for more details and contact support if the issue persists.`,
+            )
+            throw new Error(jobResult.error || "Failed to create job")
+          }
 
-        console.log("Job created successfully:", jobResult.jobId)
+          console.log("Job created successfully:", jobResult.jobId)
 
-        // Send notification to both parties about job creation
-        const notificationPromises = [
-          // Notification to other party
-          sendNotification({
+          // Send notification to both parties about job creation
+          const notificationPromises = [
+            // Notification to other party
+            sendNotification({
+              user_id: otherUserId,
+              type: "job_created",
+              title: `Job created for "${notification.metadata.service_name}"`,
+              message: `Both parties have agreed to $${proposedPrice}. The job has been created and work can begin!`,
+              metadata: {
+                job_id: jobResult.jobId,
+                service_name: notification.metadata.service_name,
+                final_price: proposedPrice,
+                negotiation_id: negotiationId,
+              },
+            }),
+            // Notification to current user
+            sendNotification({
+              user_id: user.id,
+              type: "job_created",
+              title: `Job created for "${notification.metadata.service_name}"`,
+              message: `The job has been created successfully! You can now view it in your jobs dashboard.`,
+              metadata: {
+                job_id: jobResult.jobId,
+                service_name: notification.metadata.service_name,
+                final_price: proposedPrice,
+                negotiation_id: negotiationId,
+              },
+            }),
+          ]
+
+          // Send notifications but don't fail if they don't work
+          try {
+            await Promise.all(notificationPromises)
+          } catch (notificationError) {
+            console.warn("Failed to send job creation notifications:", notificationError)
+          }
+
+          alert(`🎉 Both parties agreed! Job has been created successfully. Job ID: ${jobResult.jobId}`)
+
+          // Redirect to the job page
+          window.location.href = `/jobs/${jobResult.jobId}`
+        } else {
+          // Only one party agreed - send notification to other party
+          const otherUserType = userType === "client" ? "freelancer" : "client"
+
+          await sendNotification({
             user_id: otherUserId,
-            type: "job_created",
-            title: `Job created for "${notification.metadata.service_name}"`,
-            message: `Both parties have agreed to $${proposedPrice}. The job has been created and work can begin!`,
+            type: "agreement_pending",
+            title: `Agreement pending for "${notification.metadata.service_name}"`,
+            message: `The ${userType} has agreed to $${proposedPrice}. Waiting for your agreement to create the job.`,
             metadata: {
-              job_id: jobResult.jobId,
-              service_name: notification.metadata.service_name,
-              final_price: proposedPrice,
               negotiation_id: negotiationId,
-            },
-          }),
-          // Notification to current user
-          sendNotification({
-            user_id: user.id,
-            type: "job_created",
-            title: `Job created for "${notification.metadata.service_name}"`,
-            message: `The job has been created successfully! You can now view it in your jobs dashboard.`,
-            metadata: {
-              job_id: jobResult.jobId,
+              service_id: notification.metadata.service_id,
               service_name: notification.metadata.service_name,
-              final_price: proposedPrice,
-              negotiation_id: negotiationId,
+              service_price_range: negotiationData.service_price_range || notification.metadata.service_price_range,
+              proposed_price: proposedPrice,
+              agreed_by: userType,
+              waiting_for: otherUserType,
+              freelancer_id: negotiationData.freelancer_id,
+              client_id: negotiationData.client_id,
             },
-          }),
-        ]
+          })
 
-        // Send notifications but don't fail if they don't work
-        try {
-          await Promise.all(notificationPromises)
-        } catch (notificationError) {
-          console.warn("Failed to send job creation notifications:", notificationError)
+          alert(`You agreed to $${proposedPrice}. Waiting for the other party to agree.`)
         }
-
-        alert(`🎉 Both parties agreed! Job has been created successfully. Job ID: ${jobResult.jobId}`)
-
-        // Redirect to the job page
-        window.location.href = `/jobs/${jobResult.jobId}`
-      } else {
-        // Only one party agreed - send notification to other party
-        const otherUserType = userType === "client" ? "freelancer" : "client"
-
-        await sendNotification({
-          user_id: otherUserId,
-          type: "agreement_pending",
-          title: `Agreement pending for "${notification.metadata.service_name}"`,
-          message: `The ${userType} has agreed to $${proposedPrice}. Waiting for your agreement to create the job.`,
-          metadata: {
-            negotiation_id: negotiationId,
-            service_id: notification.metadata.service_id,
-            service_name: notification.metadata.service_name,
-            service_price_range: negotiationData.service_price_range || notification.metadata.service_price_range,
-            proposed_price: proposedPrice,
-            agreed_by: userType,
-            waiting_for: otherUserType,
-            freelancer_id: negotiationData.freelancer_id,
-            client_id: negotiationData.client_id,
-          },
-        })
-
-        alert(`You agreed to $${proposedPrice}. Waiting for the other party to agree.`)
       }
 
       // Refresh notifications
@@ -809,7 +823,7 @@ export default function NotificationsPage() {
             filteredNotifications.map((notification) => (
               <Card
                 key={notification.id}
-                className={`transition-all ${!notification.is_read ? "border-l-4 border-l-blue-500 bg-blue-50/50" : ""}`}
+                className={`transition-all ${!notification.is_read ? "border-l-4 border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/10" : ""}`}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -843,8 +857,8 @@ export default function NotificationsPage() {
                     <div className="bg-muted p-3 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium">Service: {notification.metadata.service_name}</p>
-                          <p className="text-xs text-muted-foreground">From: {notification.metadata.client_name}</p>
+                          <p className="text-sm font-medium">Service: {notification.metadata?.service_name}</p>
+                          <p className="text-xs text-muted-foreground">From: {notification.metadata?.client_name}</p>
                         </div>
                         <div className="space-x-2">
                           <Button size="sm" onClick={() => handleStartNegotiation(notification)}>
@@ -863,15 +877,19 @@ export default function NotificationsPage() {
                     <div className="bg-muted p-3 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium">Proposed Price: ${notification.metadata.proposed_price}</p>
-                          <p className="text-xs text-muted-foreground">Service: {notification.metadata.service_name}</p>
-                          {notification.metadata.last_offer_by && (
+                          <p className="text-sm font-medium">
+                            Proposed Price: ${notification.metadata?.proposed_price}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Service: {notification.metadata?.service_name}
+                          </p>
+                          {notification.metadata?.last_offer_by && (
                             <p className="text-xs text-muted-foreground">
                               Last offer by: {notification.metadata.last_offer_by}
                               {notification.metadata.offer_count && ` (Round ${notification.metadata.offer_count})`}
                             </p>
                           )}
-                          {notification.metadata.deadline && (
+                          {notification.metadata?.deadline && (
                             <p className="text-xs text-muted-foreground">
                               <Calendar className="inline h-3 w-3 mr-1" />
                               Deadline: {new Date(notification.metadata.deadline).toLocaleDateString()}
@@ -889,8 +907,8 @@ export default function NotificationsPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Agree to Price?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  You're agreeing to ${notification.metadata.proposed_price} for "
-                                  {notification.metadata.service_name}". The other party must also agree before the job
+                                  You're agreeing to ${notification.metadata?.proposed_price} for "
+                                  {notification.metadata?.service_name}". The other party must also agree before the job
                                   is created.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
@@ -908,9 +926,9 @@ export default function NotificationsPage() {
                             onClick={() => {
                               setSelectedNotification(notification)
                               // Initialize with current proposed price, ensuring it's within bounds
-                              const currentPrice = notification.metadata.proposed_price || 0
-                              const minPrice = notification.metadata.service_price_range?.[0] || 0
-                              const maxPrice = notification.metadata.service_price_range?.[1] || 1000
+                              const currentPrice = notification.metadata?.proposed_price || 0
+                              const minPrice = notification.metadata?.service_price_range?.[0] || 0
+                              const maxPrice = notification.metadata?.service_price_range?.[1] || 1000
                               const validPrice = Math.max(minPrice, Math.min(maxPrice, currentPrice))
                               setCounterPrice([validPrice])
                               setCounterOfferDialogOpen(true)
@@ -928,15 +946,15 @@ export default function NotificationsPage() {
 
                   {/* Agreement Pending Actions */}
                   {notification.type === "agreement_pending" && (
-                    <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg">
+                    <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg dark:bg-orange-950/10 dark:border-orange-800/30">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium">
                             <Users className="inline h-4 w-4 mr-1" />
-                            Waiting for your agreement: ${notification.metadata.proposed_price}
+                            Waiting for your agreement: ${notification.metadata?.proposed_price}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            The {notification.metadata.agreed_by} has already agreed to this price
+                            The {notification.metadata?.agreed_by} has already agreed to this price
                           </p>
                         </div>
                         <div className="space-x-2">
@@ -951,8 +969,8 @@ export default function NotificationsPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Create Job?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  By agreeing, you'll create a job for ${notification.metadata.proposed_price}. Work can
-                                  begin immediately after creation.
+                                  By agreeing, you'll create a job for ${notification.metadata?.proposed_price}. Work
+                                  can begin immediately after creation.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -1128,5 +1146,4 @@ export default function NotificationsPage() {
       </Dialog>
     </div>
   )
-  }
 }
