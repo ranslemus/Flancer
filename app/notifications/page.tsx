@@ -675,7 +675,7 @@ export default function NotificationsPage() {
     alert(`Error: ${errorMessage}`)
   } finally {
     setSubmitting(false)
-  }
+  };
 
   const handleDeclineOffer = async (notification: Notification) => {
     try {
