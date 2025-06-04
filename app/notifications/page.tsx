@@ -802,7 +802,10 @@ export default function NotificationsPage() {
           <TabsTrigger value="all" className="relative">
             All
             {notifications.length > 0 && (
-              <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 text-xs">
+              <Badge
+                variant="secondary"
+                className="ml-2 h-5 w-5 rounded-full flex items-center justify-center text-xs font-medium"
+              >
                 {notifications.length}
               </Badge>
             )}
@@ -810,7 +813,10 @@ export default function NotificationsPage() {
           <TabsTrigger value="unread" className="relative">
             Unread
             {unreadCount > 0 && (
-              <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 text-xs">
+              <Badge
+                variant="destructive"
+                className="ml-2 h-5 w-5 rounded-full flex items-center justify-center text-xs font-medium"
+              >
                 {unreadCount}
               </Badge>
             )}
