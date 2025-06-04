@@ -1,4 +1,5 @@
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { logDatabaseOperation, validateRequiredFields } from "./debug-utils"
 
 // Type definitions
 export interface NotificationMetadata {
@@ -83,16 +84,25 @@ export async function validateUser(userId: string): Promise<boolean> {
   const supabase = createClientComponentClient()
 
   try {
-    // Instead of querying auth.users directly, check if user exists in our client table
-    // which should have all registered users
-    const { data, error } = await supabase.from("client").select("user_id").eq("user_id", userId).single()
+    // First try to find in client table
+    const { data: clientData, error: clientError } = await supabase
+      .from("client")
+      .select("user_id")
+      .eq("user_id", userId)
+      .single()
 
-    if (error && error.code !== "PGRST116") {
-      console.error("User validation error:", error)
-      return false
+    if (clientData) {
+      return true
     }
 
-    return !!data
+    // If not found in client, try freelancer table
+    const { data: freelancerData, error: freelancerError } = await supabase
+      .from("freelancer")
+      .select("user_id")
+      .eq("user_id", userId)
+      .single()
+
+    return !!freelancerData
   } catch (error) {
     console.error("Error validating user:", error)
     return false
@@ -132,6 +142,8 @@ export async function createJobFromNegotiation(
   const supabase = createClientComponentClient()
 
   try {
+    console.log("Starting job creation from negotiation:", negotiationId)
+
     // Get negotiation data
     const { data: negotiation, error: negotiationError } = await supabase
       .from("price_negotiations")
@@ -139,8 +151,10 @@ export async function createJobFromNegotiation(
       .eq("negotiation_id", negotiationId)
       .single()
 
+    logDatabaseOperation("Fetch negotiation", negotiation, negotiationError)
+
     if (negotiationError || !negotiation) {
-      return { success: false, error: `Negotiation not found: ${negotiationError?.message}` }
+      return { success: false, error: `Negotiation not found: ${negotiationError?.message || "Unknown error"}` }
     }
 
     // Validate users
@@ -149,26 +163,79 @@ export async function createJobFromNegotiation(
       return { success: false, error: validation.error }
     }
 
-    // Create job
-    const { data: jobData, error: jobError } = await supabase
-      .from("jobs")
-      .insert({
-        service_id: negotiation.service_id,
-        client_id: negotiation.client_id,
-        freelancer_id: negotiation.freelancer_id,
-        status: "in_progress",
-        payment: negotiation.final_agreed_price || negotiation.current_price,
-        deadline: negotiation.deadline,
-        description: negotiation.job_description,
-      })
-      .select()
-      .single()
+    // Validate required fields
+    const requiredFields = ["service_id", "client_id", "freelancer_id"]
+    const missingFields = validateRequiredFields(negotiation, requiredFields)
+
+    if (missingFields.length > 0) {
+      return { success: false, error: `Missing required fields in negotiation: ${missingFields.join(", ")}` }
+    }
+
+    const finalPrice = negotiation.final_agreed_price || negotiation.current_price
+    if (!finalPrice || finalPrice <= 0) {
+      return { success: false, error: "Invalid or missing price in negotiation" }
+    }
+
+    // Create job with proper column mapping
+    const jobData = {
+      service_id: negotiation.service_id,
+      client_id: negotiation.client_id,
+      freelancer_id: negotiation.freelancer_id,
+      status: "in_progress",
+      payment: finalPrice,
+      deadline: negotiation.deadline || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Default to 7 days from now
+      description: negotiation.job_description || "Job created from negotiation",
+    }
+
+    console.log("Creating job with data:", jobData)
+
+    // Insert job record
+    const { data: createdJob, error: jobError } = await supabase.from("job").insert(jobData).select("job_id").single()
+
+    logDatabaseOperation("Create job", createdJob, jobError)
 
     if (jobError) {
+      // Try to get more detailed error information
+      console.error("Job creation failed with error:", jobError)
+
+      // Check if it's a foreign key constraint issue
+      if (jobError.message?.includes("foreign key constraint")) {
+        // Try to identify which foreign key is failing
+        if (jobError.message.includes("service_id")) {
+          return { success: false, error: `Invalid service_id: ${negotiation.service_id}` }
+        }
+        if (jobError.message.includes("client_id")) {
+          return { success: false, error: `Invalid client_id: ${negotiation.client_id}` }
+        }
+        if (jobError.message.includes("freelancer_id")) {
+          return { success: false, error: `Invalid freelancer_id: ${negotiation.freelancer_id}` }
+        }
+      }
+
       return { success: false, error: `Failed to create job: ${jobError.message}` }
     }
 
-    return { success: true, jobId: jobData.job_id }
+    if (!createdJob?.job_id) {
+      return { success: false, error: "Job created but no job_id returned" }
+    }
+
+    // Update negotiation with job_id
+    const { error: updateError } = await supabase
+      .from("price_negotiations")
+      .update({
+        status: "completed",
+        job_id: createdJob.job_id,
+      })
+      .eq("negotiation_id", negotiationId)
+
+    logDatabaseOperation(
+      "Update negotiation with job_id",
+      { negotiation_id: negotiationId, job_id: createdJob.job_id },
+      updateError,
+    )
+
+    console.log("Job created successfully with ID:", createdJob.job_id)
+    return { success: true, jobId: createdJob.job_id }
   } catch (error) {
     console.error("Error creating job:", error)
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" }

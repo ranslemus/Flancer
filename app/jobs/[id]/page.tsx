@@ -111,59 +111,190 @@ export default function JobDetailPage() {
   useEffect(() => {
     const fetchJobData = async () => {
       try {
+        console.log("Fetching job data for ID:", jobId)
+
         // Get current user
         const {
           data: { user },
+          error: userError,
         } = await supabase.auth.getUser()
-        if (!user) {
-          router.push("/login")
+
+        if (userError) {
+          console.error("User auth error:", userError)
+          setError("Authentication error")
           return
         }
+
+        if (!user) {
+          console.log("No user found, redirecting to login")
+          router.push("/auth/login")
+          return
+        }
+
+        console.log("Current user:", user.id)
         setCurrentUser(user)
 
-        // Get user role
-        const { data: clientData } = await supabase.from("client").select("role").eq("user_id", user.id).single()
+        // Get user role by checking both client and freelancer tables
+        console.log("Checking user role...")
 
-        const role = clientData?.role === "freelancer" ? "freelancer" : "client"
+        const { data: clientData, error: clientError } = await supabase
+          .from("client")
+          .select("role, full_name")
+          .eq("user_id", user.id)
+          .single()
+
+        console.log("Client data:", clientData, "Client error:", clientError)
+
+        let role: "client" | "freelancer" = "client"
+
+        if (clientData?.role === "freelancer") {
+          role = "freelancer"
+        } else if (!clientData) {
+          // Check freelancer table if not found in client
+          const { data: freelancerData, error: freelancerError } = await supabase
+            .from("freelancer")
+            .select("user_id")
+            .eq("user_id", user.id)
+            .single()
+
+          console.log("Freelancer data:", freelancerData, "Freelancer error:", freelancerError)
+
+          if (freelancerData) {
+            role = "freelancer"
+          }
+        }
+
+        console.log("User role determined:", role)
         setUserRole(role)
 
-        // Fetch job data
+        // Fetch job data with better error handling
+        console.log("Fetching job with ID:", jobId)
+
         const { data: jobData, error: jobError } = await supabase
-          .from("jobs")
+          .from("job")
           .select(`
-            *,
-            service:serviceList(service_name, service_pictures),
-            client_profile:client!jobs_client_id_fkey(full_name, email),
-            freelancer_profile:client!jobs_freelancer_id_fkey(full_name, email)
+            job_id,
+            service_id,
+            client_id,
+            freelancer_id,
+            status,
+            payment,
+            deadline,
+            description,
+            created_at,
+            updated_at
           `)
           .eq("job_id", jobId)
           .single()
 
+        console.log("Job query result:", { jobData, jobError })
+
         if (jobError) {
-          console.error("Job error:", jobError)
+          console.error("Job fetch error:", jobError)
+          if (jobError.code === "PGRST116") {
+            setError("Job not found")
+          } else {
+            setError(`Failed to fetch job: ${jobError.message || "Unknown error"}`)
+          }
+          return
+        }
+
+        if (!jobData) {
+          console.error("No job data returned")
           setError("Job not found")
           return
         }
 
         // Check if user has access to this job
         if (jobData.client_id !== user.id && jobData.freelancer_id !== user.id) {
+          console.error(
+            "Access denied. User ID:",
+            user.id,
+            "Client ID:",
+            jobData.client_id,
+            "Freelancer ID:",
+            jobData.freelancer_id,
+          )
           setError("You don't have access to this job")
           return
         }
 
-        setJob(jobData)
+        console.log("Job data fetched successfully:", jobData)
+
+        // Fetch service information
+        let serviceData = null
+        if (jobData.service_id) {
+          const { data: service, error: serviceError } = await supabase
+            .from("serviceList")
+            .select("service_name, service_pictures")
+            .eq("service_id", jobData.service_id)
+            .single()
+
+          if (service && !serviceError) {
+            serviceData = service
+          } else {
+            console.warn("Could not fetch service data:", serviceError)
+          }
+        }
+
+        // Fetch client profile
+        let clientProfile = null
+        if (jobData.client_id) {
+          const { data: client, error: clientProfileError } = await supabase
+            .from("client")
+            .select("full_name, email")
+            .eq("user_id", jobData.client_id)
+            .single()
+
+          if (client && !clientProfileError) {
+            clientProfile = client
+          } else {
+            console.warn("Could not fetch client profile:", clientProfileError)
+          }
+        }
+
+        // Fetch freelancer profile
+        let freelancerProfile = null
+        if (jobData.freelancer_id) {
+          const { data: freelancer, error: freelancerProfileError } = await supabase
+            .from("client")
+            .select("full_name, email")
+            .eq("user_id", jobData.freelancer_id)
+            .single()
+
+          if (freelancer && !freelancerProfileError) {
+            freelancerProfile = freelancer
+          } else {
+            console.warn("Could not fetch freelancer profile:", freelancerProfileError)
+          }
+        }
+
+        // Combine all data
+        const completeJobData = {
+          ...jobData,
+          service: serviceData,
+          client_profile: clientProfile,
+          freelancer_profile: freelancerProfile,
+        }
+
+        console.log("Complete job data:", completeJobData)
+        setJob(completeJobData)
 
         // Fetch deliverables
-        const { data: deliverablesData } = await supabase
+        const { data: deliverablesData, error: deliverablesError } = await supabase
           .from("job_deliverables")
           .select("*")
           .eq("job_id", jobId)
           .order("uploaded_at", { ascending: false })
 
-        setDeliverables(deliverablesData || [])
+        if (deliverablesError) {
+          console.warn("Could not fetch deliverables:", deliverablesError)
+        } else {
+          setDeliverables(deliverablesData || [])
+        }
       } catch (error) {
-        console.error("Error fetching job:", error)
-        setError("Failed to load job data")
+        console.error("Unexpected error fetching job:", error)
+        setError("An unexpected error occurred while loading the job")
       } finally {
         setLoading(false)
       }
@@ -171,15 +302,18 @@ export default function JobDetailPage() {
 
     if (jobId) {
       fetchJobData()
+    } else {
+      setError("No job ID provided")
+      setLoading(false)
     }
-  }, [jobId])
+  }, [jobId, router, supabase])
 
   const handleApproveJob = async () => {
     if (!job) return
 
     setSubmitting(true)
     try {
-      const { error } = await supabase.from("jobs").update({ status: "done" }).eq("job_id", jobId)
+      const { error } = await supabase.from("job").update({ status: "done" }).eq("job_id", jobId)
 
       if (error) {
         console.error("Error approving job:", error)
@@ -191,7 +325,7 @@ export default function JobDetailPage() {
       await supabase.from("notifications").insert({
         user_id: job.freelancer_id,
         type: "job_completed",
-        title: `Job completed: "${job.service?.service_name}"`,
+        title: `Job completed: "${job.service?.service_name || "Unknown Service"}"`,
         message: "Your work has been approved and the job is now complete!",
         metadata: {
           job_id: jobId,
@@ -216,7 +350,7 @@ export default function JobDetailPage() {
 
     setSubmitting(true)
     try {
-      const { error } = await supabase.from("jobs").update({ deadline: newDeadline }).eq("job_id", jobId)
+      const { error } = await supabase.from("job").update({ deadline: newDeadline }).eq("job_id", jobId)
 
       if (error) {
         console.error("Error extending deadline:", error)
@@ -228,7 +362,7 @@ export default function JobDetailPage() {
       await supabase.from("notifications").insert({
         user_id: job.freelancer_id,
         type: "deadline_extended",
-        title: `Deadline extended: "${job.service?.service_name}"`,
+        title: `Deadline extended: "${job.service?.service_name || "Unknown Service"}"`,
         message: `The deadline has been extended to ${new Date(newDeadline).toLocaleDateString()}`,
         metadata: {
           job_id: jobId,
@@ -255,7 +389,7 @@ export default function JobDetailPage() {
 
     setSubmitting(true)
     try {
-      const { error } = await supabase.from("jobs").update({ status: "cancelled" }).eq("job_id", jobId)
+      const { error } = await supabase.from("job").update({ status: "cancelled" }).eq("job_id", jobId)
 
       if (error) {
         console.error("Error cancelling job:", error)
@@ -267,7 +401,7 @@ export default function JobDetailPage() {
       await supabase.from("notifications").insert({
         user_id: job.freelancer_id,
         type: "job_cancelled",
-        title: `Job cancelled: "${job.service?.service_name}"`,
+        title: `Job cancelled: "${job.service?.service_name || "Unknown Service"}"`,
         message: "The job has been cancelled by the client.",
         metadata: {
           job_id: jobId,

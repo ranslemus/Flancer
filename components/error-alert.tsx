@@ -1,34 +1,25 @@
 "use client"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { AlertTriangle, X } from "lucide-react"
 
 interface ErrorAlertProps {
-  title?: string
   message: string
   onDismiss?: () => void
-  onRetry?: () => void
-  variant?: "default" | "destructive"
+  title?: string
 }
 
-export function ErrorAlert({ title = "Error", message, onDismiss, onRetry, variant = "destructive" }: ErrorAlertProps) {
+export function ErrorAlert({ message, onDismiss, title = "Error" }: ErrorAlertProps) {
   return (
-    <Alert variant={variant} className="mb-4">
-      <AlertTriangle className="h-4 w-4" />
-      <div className="flex-1">
-        <AlertTitle>{title}</AlertTitle>
+    <Alert variant="destructive" className="mb-4">
+      <XCircle className="h-4 w-4" />
+      <AlertTitle>{title}</AlertTitle>
+      <div className="flex items-start justify-between">
         <AlertDescription className="mt-1">{message}</AlertDescription>
-      </div>
-      <div className="flex gap-2 ml-4">
-        {onRetry && (
-          <Button variant="outline" size="sm" onClick={onRetry}>
-            Try Again
-          </Button>
-        )}
         {onDismiss && (
-          <Button variant="ghost" size="sm" onClick={onDismiss}>
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="sm" onClick={onDismiss} className="ml-2 h-8 px-2">
+            Dismiss
           </Button>
         )}
       </div>

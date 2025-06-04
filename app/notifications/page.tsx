@@ -141,7 +141,7 @@ export default function NotificationsPage() {
         setUser(user)
         await fetchNotifications(user.id)
       } else {
-        window.location.href = "/login"
+        window.location.href = "/auth/login"
       }
     }
     getUser()
@@ -444,6 +444,13 @@ export default function NotificationsPage() {
       const userType = user.id === notification.metadata.client_id ? "client" : "freelancer"
       const otherUserId = userType === "client" ? notification.metadata.freelancer_id : notification.metadata.client_id
 
+      console.log("Agreement process started:", {
+        negotiationId,
+        proposedPrice,
+        userType,
+        otherUserId,
+      })
+
       // Validate the other user exists
       if (!otherUserId) {
         throw new Error("Missing other party's ID in notification metadata")
@@ -455,28 +462,52 @@ export default function NotificationsPage() {
       }
 
       // Create agreement confirmation
-      await supabase.from("agreement_confirmations").insert({
+      const { error: agreementError } = await supabase.from("agreement_confirmations").insert({
         negotiation_id: negotiationId,
         user_id: user.id,
         user_type: userType,
         agreed_price: proposedPrice,
       })
 
+      if (agreementError) {
+        console.error("Agreement confirmation error:", agreementError)
+        throw new Error(`Failed to record agreement: ${agreementError.message}`)
+      }
+
       // Update negotiation status
       const updateData = userType === "client" ? { client_agreed: true } : { freelancer_agreed: true }
-      await supabase.from("price_negotiations").update(updateData).eq("negotiation_id", negotiationId)
+      const { error: updateError } = await supabase
+        .from("price_negotiations")
+        .update(updateData)
+        .eq("negotiation_id", negotiationId)
+
+      if (updateError) {
+        console.error("Negotiation update error:", updateError)
+        throw new Error(`Failed to update negotiation: ${updateError.message}`)
+      }
 
       // Check if both parties have agreed
-      const { data: negotiationData } = await supabase
+      const { data: negotiationData, error: fetchError } = await supabase
         .from("price_negotiations")
         .select("*")
         .eq("negotiation_id", negotiationId)
         .single()
 
+      if (fetchError) {
+        console.error("Error fetching negotiation data:", fetchError)
+        throw new Error(`Failed to fetch negotiation: ${fetchError.message}`)
+      }
+
       if (negotiationData) {
         const bothAgreed =
           (userType === "client" ? true : negotiationData.client_agreed) &&
           (userType === "freelancer" ? true : negotiationData.freelancer_agreed)
+
+        console.log("Agreement status:", {
+          bothAgreed,
+          clientAgreed: userType === "client" ? true : negotiationData.client_agreed,
+          freelancerAgreed: userType === "freelancer" ? true : negotiationData.freelancer_agreed,
+        })
 
         if (bothAgreed) {
           // Both parties agreed - update negotiation
@@ -489,8 +520,12 @@ export default function NotificationsPage() {
             })
             .eq("negotiation_id", negotiationId)
 
+          console.log("Creating job from negotiation...")
+
           // Create the job using the utility function
           const jobResult = await createJobFromNegotiation(negotiationId)
+
+          console.log("Job creation result:", jobResult)
 
           if (!jobResult.success) {
             throw new Error(jobResult.error || "Failed to create job")
@@ -499,6 +534,19 @@ export default function NotificationsPage() {
           // Send notification to both parties
           await sendNotification({
             user_id: otherUserId,
+            type: "job_created",
+            title: `Job created for "${notification.metadata.service_name}"`,
+            message: `Both parties have agreed to $${proposedPrice}. The job has been created and work can begin!`,
+            metadata: {
+              job_id: jobResult.jobId,
+              service_name: notification.metadata.service_name,
+              final_price: proposedPrice,
+            },
+          })
+
+          // Also send notification to current user
+          await sendNotification({
+            user_id: user.id,
             type: "job_created",
             title: `Job created for "${notification.metadata.service_name}"`,
             message: `Both parties have agreed to $${proposedPrice}. The job has been created and work can begin!`,
