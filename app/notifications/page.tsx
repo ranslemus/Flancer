@@ -661,7 +661,7 @@ export default function NotificationsPage() {
           },
         })
 
-        alert(`✅ You agreed to $${proposedPrice}. Waiting for the other party to agree.`)
+        alert(`You agreed to $${proposedPrice}. Waiting for the other party to agree.`)
       }
 
       // Refresh notifications
@@ -1128,4 +1128,5 @@ export default function NotificationsPage() {
       </Dialog>
     </div>
   )
+  }
 }

@@ -12,6 +12,7 @@ import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import Logo from "./logo"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
