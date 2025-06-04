@@ -12,7 +12,7 @@ import { useSessionContext } from '@supabase/auth-helpers-react';
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { supabaseClient } = useSessionContext(); // ✅ shared client
+  const { supabaseClient } = useSessionContext(); // shared client
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);

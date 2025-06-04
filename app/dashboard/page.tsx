@@ -209,7 +209,7 @@ export default function Dashboard() {
       window.location.href = "/freelancer-setup"
     } catch (error) {
       console.error("Unexpected error in handleBecomeFreelancer:", error)
-      alert(`Unexpected error: ${error.message}`)
+      // alert(`Unexpected error: ${error.message}`)
     }
   }
 
