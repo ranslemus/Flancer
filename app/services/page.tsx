@@ -14,6 +14,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Search, Filter, Bookmark, Star, Clock, DollarSign, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { AvatarImage } from "@radix-ui/react-avatar"
 
 interface ServiceData {
   service_id: string
@@ -22,7 +23,7 @@ interface ServiceData {
   price_range: [number, number]
   service_description: string
   category: string[]
-  service_pictures?: string
+  image_url?: string
   created_at: string
 }
 
@@ -41,6 +42,7 @@ interface ClientData {
   full_name: string
   email: string
   created_at: string
+  profile_picture_url?: string
 }
 
 interface CombinedServiceData extends ServiceData {
@@ -254,6 +256,12 @@ export default function ServicesPage() {
     return `${Math.floor(diffInDays / 30)} month${Math.floor(diffInDays / 30) > 1 ? "s" : ""} ago`
   }
 
+  // Function to truncate text
+  const truncateText = (text: string, maxLength = 120) => {
+    if (!text) return ""
+    return text.length > maxLength ? text.substring(0, maxLength) + "..." : text
+  }
+
   if (loading) {
     return (
       <div className="container px-4 py-8 md:px-6 md:py-12">
@@ -386,84 +394,102 @@ export default function ServicesPage() {
             {filteredAndSortedServices.length > 0 ? (
               filteredAndSortedServices.map((service) => (
                 <Card key={service.service_id} className="overflow-hidden">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between">
-                      <div>
-                        <CardTitle className="text-xl">
-                          <Link href={`/services/${service.service_id}`} className="hover:text-primary">
-                            {service.service_name}
-                          </Link>
-                        </CardTitle>
-                        <div className="mt-1 flex items-center text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-[280px_1fr]">
+                    {/* Image with flexible aspect ratio */}
+                    <div className="aspect-[4/4] w-full overflow-hidden bg-muted">
+                      <img
+                        src={service.image_url || "/placeholder.svg?height=210&width=280"}
+                        alt={service.service_name}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = "/placeholder.svg?height=210&width=280"
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex flex-col">
+                      <CardHeader className="pb-3">
+                        <div className="flex justify-between">
+                          <div>
+                            <CardTitle className="text-xl">
+                              <Link href={`/services/${service.service_id}`} className="hover:text-primary">
+                                {service.service_name}
+                              </Link>
+                            </CardTitle>
+                            <div className="mt-1 flex items-center text-sm">
+                              <div className="flex items-center">
+                                <Avatar  className="h-6 w-6 mr-2" >
+                                  <AvatarImage src ={service.freelancer_profile?.profile_picture_url || "/placeholder.svg"}/>
+                                </Avatar>
+                                <span className="font-medium">
+                                  {service.freelancer_profile?.full_name || "Unknown Freelancer"}
+                                </span>
+                              </div>
+                              {service.freelancer && (
+                                <>
+                                  <span className="mx-2">•</span>
+                                  <div className="flex items-center">
+                                    <Star className="h-3 w-3 fill-yellow-500 text-yellow-500 mr-1" />
+                                    <span>{service.freelancer.rating || 0}</span>
+                                    <span className="text-muted-foreground ml-1">
+                                      ({service.freelancer.jobs_finished || 0})
+                                    </span>
+                                  </div>
+                                </>
+                              )}
+                              <span className="mx-2">•</span>
+                              <span className="text-muted-foreground">{formatTimeAgo(service.created_at)}</span>
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="icon">
+                            <Bookmark className="h-5 w-5" />
+                            <span className="sr-only">Save service</span>
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pb-3 flex-grow">
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {service.category?.map((cat, index) => (
+                            <Badge key={index} variant="secondary">
+                              {cat}
+                            </Badge>
+                          ))}
+                          {service.freelancer?.skills?.slice(0, 3).map((skill, index) => (
+                            <Badge key={index} variant="outline">
+                              {skill}
+                            </Badge>
+                          ))}
+                          {service.freelancer?.skills && service.freelancer.skills.length > 3 && (
+                            <Badge variant="outline">+{service.freelancer.skills.length - 3} more</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground line-clamp-3">
+                          {truncateText(service.service_description, 150)}
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-4 text-sm">
                           <div className="flex items-center">
-                            <Avatar className="h-6 w-6 mr-2">
-                              <AvatarFallback>{service.freelancer_profile?.full_name?.charAt(0) || "?"}</AvatarFallback>
-                            </Avatar>
-                            <span className="font-medium">
-                              {service.freelancer_profile?.full_name || "Unknown Freelancer"}
+                            <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
+                            <span>
+                              {service.price_range && Array.isArray(service.price_range)
+                                ? `$${service.price_range[0]} - $${service.price_range[1]}`
+                                : "Price not set"}
                             </span>
                           </div>
                           {service.freelancer && (
-                            <>
-                              <span className="mx-2">•</span>
-                              <div className="flex items-center">
-                                <Star className="h-3 w-3 fill-yellow-500 text-yellow-500 mr-1" />
-                                <span>{service.freelancer.rating || 0}</span>
-                                <span className="text-muted-foreground ml-1">
-                                  ({service.freelancer.jobs_finished || 0})
-                                </span>
-                              </div>
-                            </>
+                            <div className="flex items-center">
+                              <Clock className="mr-1 h-4 w-4 text-muted-foreground" />
+                              <span>{service.freelancer.jobs_finished || 0} jobs completed</span>
+                            </div>
                           )}
-                          <span className="mx-2">•</span>
-                          <span className="text-muted-foreground">{formatTimeAgo(service.created_at)}</span>
                         </div>
-                      </div>
-                      <Button variant="ghost" size="icon">
-                        <Bookmark className="h-5 w-5" />
-                        <span className="sr-only">Save service</span>
-                      </Button>
+                      </CardContent>
+                      <CardFooter>
+                        <Button asChild>
+                          <Link href={`/services/${service.service_id}`}>View Details</Link>
+                        </Button>
+                      </CardFooter>
                     </div>
-                  </CardHeader>
-                  <CardContent className="pb-3">
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {service.category?.map((cat, index) => (
-                        <Badge key={index} variant="secondary">
-                          {cat}
-                        </Badge>
-                      ))}
-                      {service.freelancer?.skills?.slice(0, 3).map((skill, index) => (
-                        <Badge key={index} variant="outline">
-                          {skill}
-                        </Badge>
-                      ))}
-                      {service.freelancer?.skills && service.freelancer.skills.length > 3 && (
-                        <Badge variant="outline">+{service.freelancer.skills.length - 3} more</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{service.service_description}</p>
-                    <div className="mt-4 flex flex-wrap gap-4 text-sm">
-                      <div className="flex items-center">
-                        <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
-                        <span>
-                          {service.price_range && Array.isArray(service.price_range)
-                            ? `$${service.price_range[0]} - $${service.price_range[1]}`
-                            : "Price not set"}
-                        </span>
-                      </div>
-                      {service.freelancer && (
-                        <div className="flex items-center">
-                          <Clock className="mr-1 h-4 w-4 text-muted-foreground" />
-                          <span>{service.freelancer.jobs_finished || 0} jobs completed</span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button asChild>
-                      <Link href={`/services/${service.service_id}`}>View Details</Link>
-                    </Button>
-                  </CardFooter>
+                  </div>
                 </Card>
               ))
             ) : (

@@ -16,7 +16,6 @@ interface ClientData {
   full_name: string
   role: "client" | "freelancer"
   email: string
-  phone?: string
   created_at: string
 }
 

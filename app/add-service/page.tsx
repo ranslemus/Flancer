@@ -10,9 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Plus, X, Upload, ImageIcon } from "lucide-react"
+import { ArrowLeft, Plus, X, Upload, ImageIcon, Loader2 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI } from "@google/generative-ai"
 import Link from "next/link"
 
 interface ServiceFormData {
@@ -20,7 +20,7 @@ interface ServiceFormData {
   price_range: [number, number] // [min, max]
   service_description: string
   category: string[]
-  service_pictures?: string
+  image_url?: string
 }
 
 const predefinedCategories = [
@@ -45,14 +45,16 @@ export default function AddServicePage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [newCategory, setNewCategory] = useState("")
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [uploadedImagePath, setUploadedImagePath] = useState<string | null>(null)
   const [formData, setFormData] = useState<ServiceFormData>({
     service_name: "",
     price_range: [0, 0],
     service_description: "",
     category: [],
-    service_pictures: "",
+    image_url: "",
   })
   const [enhancing, setEnhancing] = useState(false)
   const [categorizingAI, setCategorizingAI] = useState(false)
@@ -67,6 +69,8 @@ export default function AddServicePage() {
 
       if (user) {
         setUser(user)
+        console.log("Current user:", user.id)
+
         // Verify user is a freelancer
         const { data: clientData } = await supabase.from("client").select("role").eq("user_id", user.id).single()
 
@@ -82,18 +86,53 @@ export default function AddServicePage() {
     }
     getUser()
   }, [])
+
+  // Test storage access on component mount
+  useEffect(() => {
+    const testStorageAccess = async () => {
+      if (!user) return
+
+      try {
+        console.log("Testing storage access...")
+
+        // Test if we can list files in the bucket
+        const { data: files, error: listError } = await supabase.storage.from("serviceimages").list("", { limit: 1 })
+
+        if (listError) {
+          console.error("Storage list error:", listError)
+        } else {
+          console.log("Storage access test successful:", files)
+        }
+
+        // Test bucket info
+        const { data: buckets, error: bucketError } = await supabase.storage.listBuckets()
+        if (bucketError) {
+          console.error("Bucket list error:", bucketError)
+        } else {
+          console.log("Available buckets:", buckets)
+          const serviceImagesBucket = buckets.find((b) => b.name === "serviceimages")
+          console.log("serviceimages bucket config:", serviceImagesBucket)
+        }
+      } catch (error) {
+        console.error("Storage test error:", error)
+      }
+    }
+
+    testStorageAccess()
+  }, [user])
+
   // Initialize Gemini AI
-  const genAI = new GoogleGenerativeAI('AIzaSyDGrepRgEhtOlRfEXcaWNCiqKOO6T1x-fg')
+  const genAI = new GoogleGenerativeAI("AIzaSyDGrepRgEhtOlRfEXcaWNCiqKOO6T1x-fg")
 
   const enhanceWithAI = async () => {
     if (!formData.service_name.trim() && !formData.service_description.trim()) {
-      alert('Please enter at least a service name or description to enhance')
+      alert("Please enter at least a service name or description to enhance")
       return
     }
 
     setEnhancing(true)
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
 
       const prompt = `
   You are a professional copywriter helping freelancers improve their service listings. Based on the following service information, enhance and improve the content to be more professional, compelling, and attractive to potential clients.
@@ -119,52 +158,47 @@ export default function AddServicePage() {
       const rawText = response.text()
 
       // Remove markdown formatting if present
-      const cleanedText = rawText.replace(/```(?:json)?\n?([\s\S]*?)```/, '$1').trim()
+      const cleanedText = rawText.replace(/```(?:json)?\n?([\s\S]*?)```/, "$1").trim()
 
       try {
         const enhancedData = JSON.parse(cleanedText)
 
         if (enhancedData.enhanced_name) {
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
-            service_name: enhancedData.enhanced_name
+            service_name: enhancedData.enhanced_name,
           }))
         }
 
         if (enhancedData.enhanced_description) {
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
-            service_description: enhancedData.enhanced_description
+            service_description: enhancedData.enhanced_description,
           }))
         }
-
-
       } catch (parseError) {
-        console.error('Error parsing AI response:', parseError)
-  
+        console.error("Error parsing AI response:", parseError)
       }
-
     } catch (error) {
-      console.error('Error enhancing with AI:', error)
-      alert('Error enhancing content with AI. Please try again.')
+      console.error("Error enhancing with AI:", error)
+      alert("Error enhancing content with AI. Please try again.")
     } finally {
       setEnhancing(false)
     }
   }
 
-
   const suggestCategoriesWithAI = async () => {
     if (!formData.service_name.trim() && !formData.service_description.trim()) {
-      alert('Please enter a service name or description first')
+      alert("Please enter a service name or description first")
       return
     }
 
     setCategorizingAI(true)
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-      
-      const availableCategories = predefinedCategories.join(', ')
-      
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+
+      const availableCategories = predefinedCategories.join(", ")
+
       const prompt = `
       Analyze the following service information and suggest the most appropriate categories from the available list.
 
@@ -184,34 +218,31 @@ export default function AddServicePage() {
       const result = await model.generateContent(prompt)
       const response = await result.response
       const rawText = response.text()
-      const cleanedText = rawText.replace(/```(?:json)?\n?([\s\S]*?)```/, '$1').trim()
+      const cleanedText = rawText.replace(/```(?:json)?\n?([\s\S]*?)```/, "$1").trim()
       try {
         const suggestedCategories = JSON.parse(cleanedText)
-        
+
         if (Array.isArray(suggestedCategories)) {
           // Add suggested categories that aren't already selected
-          const newCategories = suggestedCategories.filter(cat => 
-            predefinedCategories.includes(cat) && !formData.category.includes(cat)
+          const newCategories = suggestedCategories.filter(
+            (cat) => predefinedCategories.includes(cat) && !formData.category.includes(cat),
           )
-          
+
           if (newCategories.length > 0) {
-            setFormData(prev => ({
+            setFormData((prev) => ({
               ...prev,
-              category: [...prev.category, ...newCategories]
+              category: [...prev.category, ...newCategories],
             }))
-   
           } else {
-            
           }
         }
       } catch (parseError) {
-        console.error('Error parsing AI response:', parseError)
-        alert('AI categorization completed but response format was unexpected. Please try again.')
+        console.error("Error parsing AI response:", parseError)
+        alert("AI categorization completed but response format was unexpected. Please try again.")
       }
-      
     } catch (error) {
-      console.error('Error suggesting categories with AI:', error)
-      alert('Error getting AI category suggestions. Please try again.')
+      console.error("Error suggesting categories with AI:", error)
+      alert("Error getting AI category suggestions. Please try again.")
     } finally {
       setCategorizingAI(false)
     }
@@ -240,19 +271,123 @@ export default function AddServicePage() {
     }))
   }
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const result = e.target?.result as string
-        setImagePreview(result)
-        setFormData((prev) => ({
-          ...prev,
-          service_pictures: result,
-        }))
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select a valid image file (JPG, PNG, GIF, WebP)")
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image size should be less than 5MB")
+      return
+    }
+
+    setUploadingImage(true)
+
+    try {
+      // Create unique filename with timestamp and user ID
+      const fileExt = file.name.split(".").pop()?.toLowerCase()
+      const fileName = `service-${user.id}-${Date.now()}.${fileExt}`
+
+      console.log("=== UPLOAD DEBUG INFO ===")
+      console.log("Uploading image:", fileName)
+      console.log("User ID:", user.id)
+      console.log("File size:", file.size)
+      console.log("File type:", file.type)
+      console.log("Bucket: serviceimages")
+
+      // First, let's test if we can access the bucket
+      const { data: bucketTest, error: bucketTestError } = await supabase.storage
+        .from("serviceimages")
+        .list("", { limit: 1 })
+
+      if (bucketTestError) {
+        console.error("Bucket access test failed:", bucketTestError)
+        alert(`Cannot access storage bucket: ${bucketTestError.message}`)
+        return
       }
-      reader.readAsDataURL(file)
+
+      console.log("Bucket access test passed:", bucketTest)
+
+      // Upload to Supabase Storage with minimal options first
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("serviceimages")
+        .upload(fileName, file)
+
+      if (uploadError) {
+        console.error("=== UPLOAD ERROR DETAILS ===")
+        console.error("Error message:", uploadError.message)
+        console.error("Error details:", uploadError)
+        console.error("Error stack:", uploadError.stack)
+
+        // Try to provide more specific error information
+        if (uploadError.message.includes("row-level security")) {
+          alert(
+            `Storage permission error: ${uploadError.message}\n\nThis suggests RLS is still enabled on storage tables. Please check your Supabase dashboard settings.`,
+          )
+        } else {
+          alert(`Error uploading image: ${uploadError.message}`)
+        }
+        return
+      }
+
+      console.log("=== UPLOAD SUCCESS ===")
+      console.log("Upload successful:", uploadData)
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("serviceimages").getPublicUrl(fileName)
+
+      console.log("Public URL:", publicUrl)
+
+      // Set preview and form data
+      setImagePreview(publicUrl)
+      setUploadedImagePath(fileName)
+      setFormData((prev) => ({
+        ...prev,
+        image_url: publicUrl,
+      }))
+
+      console.log("Image upload completed successfully")
+    } catch (error) {
+      console.error("=== UNEXPECTED ERROR ===")
+      console.error("Error uploading image:", error)
+      alert("Unexpected error uploading image. Check console for details.")
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const removeImage = async () => {
+    if (uploadedImagePath) {
+      try {
+        console.log("Removing image:", uploadedImagePath)
+        const { error } = await supabase.storage.from("serviceimages").remove([uploadedImagePath])
+
+        if (error) {
+          console.error("Error removing image from storage:", error)
+        } else {
+          console.log("Image removed from storage successfully")
+        }
+      } catch (error) {
+        console.error("Error removing image from storage:", error)
+      }
+    }
+
+    setImagePreview(null)
+    setUploadedImagePath(null)
+    setFormData((prev) => ({ ...prev, image_url: "" }))
+
+    // Reset file input
+    const fileInput = document.getElementById("image-upload") as HTMLInputElement
+    if (fileInput) {
+      fileInput.value = ""
     }
   }
 
@@ -295,28 +430,32 @@ export default function AddServicePage() {
     setSubmitting(true)
 
     try {
-      const { data, error } = await supabase
-        .from("serviceList")
-        .insert({
-          freelancer_id: user.id,
-          service_name: formData.service_name.trim(),
-          price_range: formData.price_range,
-          service_description: formData.service_description.trim(),
-          category: formData.category,
-          service_pictures: formData.service_pictures || null,
-        })
-        .select()
+      // Prepare data for insertion
+      const serviceData = {
+        freelancer_id: user.id,
+        service_name: formData.service_name.trim(),
+        price_range: formData.price_range,
+        service_description: formData.service_description.trim(),
+        category: formData.category,
+        image_url: formData.image_url || null,
+      }
+
+      console.log("Submitting service data:", serviceData)
+
+      const { data, error } = await supabase.from("serviceList").insert(serviceData).select()
 
       if (error) {
-        console.error("Error creating service:", error)
-        alert("Error creating service. Please try again.")
+        console.error("Error creating service:", error.message, error.details, error.hint)
+        alert(`Error creating service: ${error.message}. Please try again.`)
         return
       }
 
+      console.log("Service created successfully:", data)
       router.push("/profile")
-    } catch (error) {
-      console.error("Error:", error)
-      alert("An unexpected error occurred. Please try again.")
+    } catch (error: any) {
+      console.error("Unexpected error:", error)
+      console.error("Error details:", error?.message, error?.details)
+      alert(`An unexpected error occurred: ${error?.message || "Unknown error"}. Please try again.`)
     } finally {
       setSubmitting(false)
     }
@@ -359,37 +498,36 @@ export default function AddServicePage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Service Name */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="service_name">Service Name *</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={enhanceWithAI}
-                    disabled={enhancing}
-                    className="text-xs"
-                  >
-                    {enhancing ? (
-                      <>
-                        <div className="animate-spin rounded-full h-3 w-3 border-b border-current mr-2"></div>
-                        Enhancing...
-                      </>
-                    ) : (
-                      <>✨ Enhance with AI</>
-                    )}
-                  </Button>
-                </div>
-                <Input
-                  id="service_name"
-                  placeholder="e.g., Custom Website Development"
-                  value={formData.service_name}
-                  onChange={(e) => handleInputChange("service_name", e.target.value)}
-                  required
-                />
+            {/* Service Name */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="service_name">Service Name *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={enhanceWithAI}
+                  disabled={enhancing}
+                  className="text-xs"
+                >
+                  {enhancing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b border-current mr-2"></div>
+                      Enhancing...
+                    </>
+                  ) : (
+                    <>✨ Enhance with AI</>
+                  )}
+                </Button>
               </div>
- 
+              <Input
+                id="service_name"
+                placeholder="e.g., Custom Website Development"
+                value={formData.service_name}
+                onChange={(e) => handleInputChange("service_name", e.target.value)}
+                required
+              />
+            </div>
 
             {/* Price Range */}
             <div className="space-y-2">
@@ -562,10 +700,8 @@ export default function AddServicePage() {
                     variant="destructive"
                     size="sm"
                     className="absolute top-2 right-2"
-                    onClick={() => {
-                      setImagePreview(null)
-                      setFormData((prev) => ({ ...prev, service_pictures: "" }))
-                    }}
+                    onClick={removeImage}
+                    disabled={uploadingImage}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -575,10 +711,19 @@ export default function AddServicePage() {
                   <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
                   <div className="space-y-2">
                     <Label htmlFor="image-upload" className="cursor-pointer">
-                      <Button type="button" variant="outline" asChild>
+                      <Button type="button" variant="outline" disabled={uploadingImage} asChild>
                         <span>
-                          <Upload className="mr-2 h-4 w-4" />
-                          Upload Image
+                          {uploadingImage ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="mr-2 h-4 w-4" />
+                              Upload Image
+                            </>
+                          )}
                         </span>
                       </Button>
                     </Label>
@@ -588,9 +733,10 @@ export default function AddServicePage() {
                       accept="image/*"
                       onChange={handleImageUpload}
                       className="hidden"
+                      disabled={uploadingImage}
                     />
                     <p className="text-sm text-muted-foreground">
-                      Upload an image to showcase your service (JPG, PNG, GIF)
+                      Upload an image to showcase your service (JPG, PNG, GIF, WebP - Max 5MB)
                     </p>
                   </div>
                 </div>
@@ -599,10 +745,22 @@ export default function AddServicePage() {
 
             {/* Submit Buttons */}
             <div className="flex gap-4 pt-6">
-              <Button type="submit" disabled={submitting} className="flex-1">
-                {submitting ? "Creating Service..." : "Create Service"}
+              <Button type="submit" disabled={submitting || uploadingImage} className="flex-1">
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Service...
+                  </>
+                ) : (
+                  "Create Service"
+                )}
               </Button>
-              <Button type="button" variant="outline" onClick={() => router.push("/profile")} disabled={submitting}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push("/profile")}
+                disabled={submitting || uploadingImage}
+              >
                 Cancel
               </Button>
             </div>
@@ -612,3 +770,4 @@ export default function AddServicePage() {
     </div>
   )
 }
+  

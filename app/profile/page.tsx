@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Edit, ExternalLink, Github, Globe, Linkedin, Mail, Star, Twitter } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
@@ -16,7 +16,7 @@ interface ClientData {
   full_name: string
   role: "client" | "freelancer"
   email: string
-  phone?: string
+  profile_picture_url?: string
   created_at: string
 }
 
@@ -36,7 +36,7 @@ interface ServiceData {
   service_name: string
   price_range: number[]
   service_description: string
-  service_pictures?: string
+  image_url?: string
   category: string[]
 }
 
@@ -56,6 +56,7 @@ export default function ProfilePage() {
   const [services, setServices] = useState<ServiceData[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("services")
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null)
 
   const supabase = createClientComponentClient()
 
@@ -110,6 +111,7 @@ export default function ProfilePage() {
       }
 
       setClientData(client)
+      setProfilePictureUrl(client.profile_picture_url || null)
 
       // Check if user is a freelancer
       if (client.role !== "freelancer") {
@@ -171,6 +173,12 @@ export default function ProfilePage() {
 
   const memberSince = new Date(clientData.created_at).getFullYear()
 
+  // Function to truncate text
+  const truncateText = (text: string, maxLength = 120) => {
+    if (!text) return ""
+    return text.length > maxLength ? text.substring(0, maxLength) + "..." : text
+  }
+
   return (
     <div className="container px-4 py-8 md:px-6 md:py-12">
       <div className="grid gap-8 md:grid-cols-[300px_1fr] lg:grid-cols-[340px_1fr]">
@@ -180,6 +188,7 @@ export default function ProfilePage() {
             <CardHeader className="text-center">
               <div className="flex justify-center">
                 <Avatar className="h-24 w-24">
+                  <AvatarImage src={profilePictureUrl || "/placeholder.svg"} alt={clientData.full_name} />
                   <AvatarFallback className="text-2xl">
                     {clientData.full_name
                       .split(" ")
@@ -289,34 +298,41 @@ export default function ProfilePage() {
               {services.length > 0 ? (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {services.map((service) => (
-                    <Card key={service.service_id} className="overflow-hidden">
-                      {service.service_pictures && (
-                        <div className="aspect-video w-full overflow-hidden">
-                          <img
-                            src={service.service_pictures || "/placeholder.svg?height=200&width=300"}
-                            alt={service.service_name}
-                            className="h-full w-full object-cover transition-all hover:scale-105"
-                            onError={(e) => {
-                              e.currentTarget.src = "/placeholder.svg?height=200&width=300"
-                            }}
-                          />
-                        </div>
-                      )}
-                      <CardHeader>
+                    <Card key={service.service_id} className="overflow-hidden flex flex-col">
+                      {/* Service image with flexible aspect ratio */}
+                      <div className="aspect-[4/3] w-full overflow-hidden relative bg-muted">
+                        <img
+                          src={service.image_url || "/placeholder.svg?height=300&width=400"}
+                          alt={service.service_name}
+                          className="h-full w-full object-cover transition-all hover:scale-105"
+                          onError={(e) => {
+                            e.currentTarget.src = "/placeholder.svg?height=300&width=400"
+                          }}
+                        />
+                      </div>
+                      <CardHeader className="pb-2">
                         <CardTitle className="text-xl">{service.service_name}</CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground">{service.service_description}</p>
+                      <CardContent className="pb-2 flex-grow">
+                        <p className="text-sm text-muted-foreground line-clamp-3">
+                          {truncateText(service.service_description, 100)}
+                        </p>
                         <div className="mt-4 flex flex-wrap gap-2">
-                          {service.category.map((skill, index) => (
-                            <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800">
-                              {skill}
-                            </Badge>
-                          ))}
+                          {service.category &&
+                            service.category.slice(0, 3).map((skill, index) => (
+                              <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800">
+                                {skill}
+                              </Badge>
+                            ))}
+                          {service.category && service.category.length > 3 && (
+                            <Badge variant="outline">+{service.category.length - 3}</Badge>
+                          )}
                         </div>
                         <div className="mt-4 flex justify-between text-sm">
                           <div className="flex items-center">
-                            <span className="font-medium">${service.price_range[0]} - ${service.price_range[1]}</span>
+                            <span className="font-medium">
+                              ${service.price_range[0]} - ${service.price_range[1]}
+                            </span>
                           </div>
                         </div>
                       </CardContent>

@@ -19,7 +19,7 @@ interface ServiceFormData {
   price_range: [number, number]
   service_description: string
   category: string[]
-  service_pictures?: string
+  image_url?: string
 }
 
 const predefinedCategories = [
@@ -48,14 +48,17 @@ export default function EditServicePage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [newCategory, setNewCategory] = useState("")
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [uploadedImagePath, setUploadedImagePath] = useState<string | null>(null)
+  const [originalImagePath, setOriginalImagePath] = useState<string | null>(null)
   const [formData, setFormData] = useState<ServiceFormData>({
     service_name: "",
     price_range: [0, 0],
     service_description: "",
     category: [],
-    service_pictures: "",
+    image_url: "",
   })
 
   const supabase = createClientComponentClient()
@@ -102,11 +105,17 @@ export default function EditServicePage() {
           price_range: serviceData.price_range || [0, 0],
           service_description: serviceData.service_description || "",
           category: serviceData.category || [],
-          service_pictures: serviceData.service_pictures || "",
+          image_url: serviceData.image_url || "",
         })
 
-        if (serviceData.service_pictures) {
-          setImagePreview(serviceData.service_pictures)
+        if (serviceData.image_url) {
+          setImagePreview(serviceData.image_url)
+          // Extract filename from URL for deletion purposes
+          const urlParts = serviceData.image_url.split("/")
+          const fileName = urlParts[urlParts.length - 1]
+          if (fileName && fileName.startsWith("service-")) {
+            setOriginalImagePath(fileName)
+          }
         }
       } catch (error) {
         console.error("Error fetching service:", error)
@@ -146,19 +155,93 @@ export default function EditServicePage() {
     }))
   }
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const result = e.target?.result as string
-        setImagePreview(result)
-        setFormData((prev) => ({
-          ...prev,
-          service_pictures: result,
-        }))
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select a valid image file (JPG, PNG, GIF, WebP)")
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image size should be less than 5MB")
+      return
+    }
+
+    setUploadingImage(true)
+
+    try {
+      // Create unique filename with timestamp and user ID
+      const fileExt = file.name.split(".").pop()?.toLowerCase()
+      const fileName = `service-${user.id}-${Date.now()}.${fileExt}`
+
+      console.log("Uploading new image:", fileName)
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("serviceimages")
+        .upload(fileName, file)
+
+      if (uploadError) {
+        console.error("Upload error details:", uploadError)
+        alert(`Error uploading image: ${uploadError.message}`)
+        return
       }
-      reader.readAsDataURL(file)
+
+      console.log("Upload successful:", uploadData)
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("serviceimages").getPublicUrl(fileName)
+
+      console.log("Public URL:", publicUrl)
+
+      // Set preview and form data
+      setImagePreview(publicUrl)
+      setUploadedImagePath(fileName)
+      setFormData((prev) => ({
+        ...prev,
+        image_url: publicUrl,
+      }))
+
+      console.log("Image upload completed successfully")
+    } catch (error) {
+      console.error("Error uploading image:", error)
+      alert("Error uploading image. Please check your internet connection and try again.")
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const removeImage = async () => {
+    // If there's a newly uploaded image, remove it from storage
+    if (uploadedImagePath) {
+      try {
+        console.log("Removing newly uploaded image:", uploadedImagePath)
+        const { error } = await supabase.storage.from("serviceimages").remove([uploadedImagePath])
+
+        if (error) {
+          console.error("Error removing image from storage:", error)
+        } else {
+          console.log("Image removed from storage successfully")
+        }
+      } catch (error) {
+        console.error("Error removing image from storage:", error)
+      }
+    }
+
+    setImagePreview(null)
+    setUploadedImagePath(null)
+    setFormData((prev) => ({ ...prev, image_url: "" }))
+
+    // Reset file input
+    const fileInput = document.getElementById("image-upload") as HTMLInputElement
+    if (fileInput) {
+      fileInput.value = ""
     }
   }
 
@@ -201,6 +284,22 @@ export default function EditServicePage() {
     setSubmitting(true)
 
     try {
+      // If image was changed and there's an original image, delete it
+      if (uploadedImagePath && originalImagePath && uploadedImagePath !== originalImagePath) {
+        try {
+          console.log("Deleting original image:", originalImagePath)
+          const { error: deleteError } = await supabase.storage.from("serviceimages").remove([originalImagePath])
+
+          if (deleteError) {
+            console.warn("Could not delete original image:", deleteError)
+          } else {
+            console.log("Original image deleted successfully")
+          }
+        } catch (deleteError) {
+          console.warn("Error deleting original image:", deleteError)
+        }
+      }
+
       const { error } = await supabase
         .from("serviceList")
         .update({
@@ -208,7 +307,7 @@ export default function EditServicePage() {
           price_range: formData.price_range,
           service_description: formData.service_description.trim(),
           category: formData.category,
-          service_pictures: formData.service_pictures || null,
+          image_url: formData.image_url || null,
         })
         .eq("service_id", serviceId)
 
@@ -409,21 +508,21 @@ export default function EditServicePage() {
               <Label>Service Image (Optional)</Label>
 
               {imagePreview ? (
-                <div className="relative">
-                  <img
-                    src={imagePreview || "/placeholder.svg"}
-                    alt="Service preview"
-                    className="w-full h-48 object-cover rounded-lg border"
-                  />
+                <div className="relative w-full max-w-sm">
+                  <div className="aspect-[3/4] w-full overflow-hidden rounded-lg border">
+                    <img
+                      src={imagePreview || "/placeholder.svg"}
+                      alt="Service preview"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
                   <Button
                     type="button"
                     variant="destructive"
                     size="sm"
                     className="absolute top-2 right-2"
-                    onClick={() => {
-                      setImagePreview(null)
-                      setFormData((prev) => ({ ...prev, service_pictures: "" }))
-                    }}
+                    onClick={removeImage}
+                    disabled={uploadingImage}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -433,10 +532,19 @@ export default function EditServicePage() {
                   <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
                   <div className="space-y-2">
                     <Label htmlFor="image-upload" className="cursor-pointer">
-                      <Button type="button" variant="outline" asChild>
+                      <Button type="button" variant="outline" disabled={uploadingImage} asChild>
                         <span>
-                          <Upload className="mr-2 h-4 w-4" />
-                          Upload Image
+                          {uploadingImage ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="mr-2 h-4 w-4" />
+                              Upload Image
+                            </>
+                          )}
                         </span>
                       </Button>
                     </Label>
@@ -446,9 +554,10 @@ export default function EditServicePage() {
                       accept="image/*"
                       onChange={handleImageUpload}
                       className="hidden"
+                      disabled={uploadingImage}
                     />
                     <p className="text-sm text-muted-foreground">
-                      Upload an image to showcase your service (JPG, PNG, GIF)
+                      Upload an image to showcase your service (JPG, PNG, GIF, WebP - Max 5MB)
                     </p>
                   </div>
                 </div>
@@ -457,14 +566,14 @@ export default function EditServicePage() {
 
             {/* Submit Buttons */}
             <div className="flex gap-4 pt-6">
-              <Button type="submit" disabled={submitting} className="flex-1">
+              <Button type="submit" disabled={submitting || uploadingImage} className="flex-1">
                 {submitting ? "Updating Service..." : "Update Service"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => router.push(`/services/${serviceId}`)}
-                disabled={submitting}
+                disabled={submitting || uploadingImage}
               >
                 Cancel
               </Button>

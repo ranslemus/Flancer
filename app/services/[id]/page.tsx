@@ -8,7 +8,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage   } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -30,7 +30,7 @@ interface ServiceData {
   price_range: [number, number]
   service_description: string
   category: string[]
-  service_pictures?: string
+  image_url?: string
   created_at: string
 }
 
@@ -48,8 +48,8 @@ interface ClientData {
   user_id: string
   full_name: string
   email: string
-  phone?: string
   created_at: string
+  profile_picture_url?: string
 }
 
 export default function ServiceDetailPage() {
@@ -218,6 +218,23 @@ export default function ServiceDetailPage() {
 
     setDeleting(true)
     try {
+      // If there's an image, try to delete it from storage
+      if (service?.image_url) {
+        // Extract filename from URL
+        const urlParts = service.image_url.split("/")
+        const fileName = urlParts[urlParts.length - 1]
+
+        if (fileName && fileName.startsWith("service-")) {
+          const { error: deleteImageError } = await supabase.storage.from("serviceimages").remove([fileName])
+
+          if (deleteImageError) {
+            console.warn("Could not delete image from storage:", deleteImageError)
+          } else {
+            console.log("Image deleted from storage successfully")
+          }
+        }
+      }
+
       const { error } = await supabase.from("serviceList").delete().eq("service_id", serviceId)
 
       if (error) {
@@ -283,17 +300,19 @@ export default function ServiceDetailPage() {
       <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
         {/* Main Content */}
         <div className="space-y-6">
-          {/* Service Image */}
-          {service.service_pictures && (
-            <div className="aspect-video w-full overflow-hidden rounded-lg">
-              <img
-                src={service.service_pictures || "/placeholder.svg?height=400&width=800"}
-                alt={service.service_name}
-                className="h-full w-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.src = "/placeholder.svg?height=400&width=800"
-                }}
-              />
+          {/* Service Image - Hero style with flexible aspect ratio */}
+          {service.image_url && (
+            <div className="w-full">
+              <div className="aspect-video w-full overflow-hidden rounded-lg bg-muted">
+                <img
+                  src={service.image_url || "/placeholder.svg?height=400&width=800"}
+                  alt={service.service_name}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = "/placeholder.svg?height=400&width=800"
+                  }}
+                />
+              </div>
             </div>
           )}
 
@@ -359,12 +378,7 @@ export default function ServiceDetailPage() {
               <CardContent className="space-y-4">
                 <div className="flex items-center space-x-3">
                   <Avatar className="h-12 w-12">
-                    <AvatarFallback>
-                      {freelancerProfile.full_name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
+                    <AvatarImage src ={freelancerProfile?.profile_picture_url || "/placeholder.svg"}/>
                   </Avatar>
                   <div>
                     <h4 className="font-semibold">{freelancerProfile.full_name}</h4>

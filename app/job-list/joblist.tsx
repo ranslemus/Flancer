@@ -12,7 +12,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Separator } from "@/components/ui/separator"
 import { Clock, MapPin, Star, MessageCircle } from "lucide-react"
 import { useTheme } from "next-themes"
-import { Moon, Sun } from "lucide-react"
 
 // Mock data for demonstration
 const jobs = [
@@ -23,6 +22,7 @@ const jobs = [
     freelancer: {
       name: "Sarah Johnson",
       avatar: "/placeholder.svg?height=32&width=32",
+      profile_picture_url: "/placeholder.svg?height=32&width=32", // Added profile_picture_url
       rating: 4.9,
     },
     status: "in-progress",
@@ -37,6 +37,7 @@ const jobs = [
     freelancer: {
       name: "Mike Chen",
       avatar: "/placeholder.svg?height=32&width=32",
+      profile_picture_url: "/placeholder.svg?height=32&width=32", // Added profile_picture_url
       rating: 4.8,
     },
     status: "under-review",
@@ -51,6 +52,7 @@ const jobs = [
     freelancer: {
       name: "Emma Davis",
       avatar: "/placeholder.svg?height=32&width=32",
+      profile_picture_url: "/placeholder.svg?height=32&width=32", // Added profile_picture_url
       rating: 4.7,
     },
     status: "completed",
@@ -75,6 +77,7 @@ const jobs = [
     freelancer: {
       name: "Alex Rodriguez",
       avatar: "/placeholder.svg?height=32&width=32",
+      profile_picture_url: "/placeholder.svg?height=32&width=32", // Added profile_picture_url
       rating: 4.9,
     },
     status: "in-progress",
@@ -89,6 +92,7 @@ const jobs = [
     freelancer: {
       name: "Lisa Thompson",
       avatar: "/placeholder.svg?height=32&width=32",
+      profile_picture_url: "/placeholder.svg?height=32&width=32", // Added profile_picture_url
       rating: 4.6,
     },
     status: "cancelled",
@@ -199,7 +203,10 @@ export default function Component() {
                     {job.freelancer ? (
                       <>
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={job.freelancer.avatar || "/placeholder.svg"} alt={job.freelancer.name} />
+                          <AvatarImage
+                            src={job.freelancer.profile_picture_url || job.freelancer.avatar || "/placeholder.svg"}
+                            alt={job.freelancer.name}
+                          />
                           <AvatarFallback>
                             {job.freelancer.name
                               .split(" ")
@@ -365,7 +372,11 @@ export default function Component() {
                           <div className="flex items-center gap-3">
                             <Avatar className="h-12 w-12">
                               <AvatarImage
-                                src={selectedJob.freelancer.avatar || "/placeholder.svg"}
+                                src={
+                                  selectedJob.freelancer.profile_picture_url ||
+                                  selectedJob.freelancer.avatar ||
+                                  "/placeholder.svg"
+                                }
                                 alt={selectedJob.freelancer.name}
                               />
                               <AvatarFallback>{selectedJob.freelancer.name.split(" ").map((n) => n[0])}</AvatarFallback>

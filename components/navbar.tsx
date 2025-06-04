@@ -13,12 +13,21 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
+interface ClientData {
+  user_id: string
+  full_name: string
+  email: string
+  created_at: string
+  profile_picture_url?: string
+}
+
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [user, setUser] = useState<any>(null)
+  const [freelancerProfile, setFreelancerProfile] = useState<ClientData | null>(null)
 
   const supabase = createClientComponentClient()
 
@@ -33,6 +42,7 @@ export default function Navbar() {
 
       if (session?.user) {
         await fetchUnreadCount(session.user.id)
+        await fetchFreelancerProfile(session.user.id)
       }
     }
 
@@ -45,8 +55,10 @@ export default function Navbar() {
 
       if (session?.user) {
         fetchUnreadCount(session.user.id)
+        fetchFreelancerProfile(session.user.id)
       } else {
         setUnreadCount(0)
+        setFreelancerProfile(null)
       }
     })
 
@@ -70,6 +82,22 @@ export default function Navbar() {
       }
 
       setUnreadCount(count || 0)
+    } catch (error) {
+      console.error("Error:", error)
+    }
+  }
+
+  // Fetch freelancer profile
+  const fetchFreelancerProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.from("freelancer_profiles").select("*").eq("user_id", userId).single()
+
+      if (error) {
+        console.error("Error fetching freelancer profile:", error)
+        return
+      }
+
+      setFreelancerProfile(data)
     } catch (error) {
       console.error("Error:", error)
     }
@@ -159,8 +187,7 @@ export default function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="/placeholder.svg" alt="@user" />
-                      <AvatarFallback>U</AvatarFallback>
+                      <AvatarImage src={freelancerProfile?.profile_picture_url || "/placeholder.svg"} />
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
@@ -248,8 +275,7 @@ export default function Navbar() {
                   </Button>
                   <Link href="/profile">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="/placeholder.svg" alt="@user" />
-                      <AvatarFallback>U</AvatarFallback>
+                      <AvatarImage src={freelancerProfile?.profile_picture_url || "/placeholder.svg"} alt="@user" />
                     </Avatar>
                   </Link>
                 </div>
