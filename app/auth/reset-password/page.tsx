@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, KeyRound } from "lucide-react"
 import { updatePassword } from "@/lib/supabase/actions"
-import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@/utils/supabase/client"
 
 export default function ResetPasswordPage() {
   const router = useRouter()
