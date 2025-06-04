@@ -6,23 +6,110 @@ import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Search, Menu, X, Bell } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import Logo from '../components/logo'; // Adjust the path if needed
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [user, setUser] = useState<any>(null)
 
-  // Mock authentication state - in a real app, this would come from your auth provider
-  const isAuthenticated = false
+  const supabase = createClientComponentClient()
+
+  useEffect(() => {
+    // Check current session
+    const checkAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      setIsAuthenticated(!!session)
+      setUser(session?.user || null)
+
+      if (session?.user) {
+        await fetchUnreadCount(session.user.id)
+      }
+    }
+
+    checkAuth()
+
+    // Listen for auth state changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session)
+      setUser(session?.user || null)
+
+      if (session?.user) {
+        fetchUnreadCount(session.user.id)
+      } else {
+        setUnreadCount(0)
+      }
+    })
+
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
+  }, [])
+
+  // Fetch unread notifications count
+  const fetchUnreadCount = async (userId: string) => {
+    try {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_read", false)
+
+      if (error) {
+        console.error("Error fetching unread count:", error)
+        return
+      }
+
+      setUnreadCount(count || 0)
+    } catch (error) {
+      console.error("Error:", error)
+    }
+  }
+
+  // Set up real-time subscription for notifications
+  useEffect(() => {
+    if (!user?.id) return
+
+    const channel = supabase
+      .channel("notifications")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log("Notification change:", payload)
+          // Refetch unread count when notifications change
+          fetchUnreadCount(user.id)
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user?.id])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    window.location.href = "/"
+  }
 
   const routes = [
     { href: "/", label: "Home" },
     { href: "/services", label: "Browse Services" },
-    { href: "/find-freelancers", label: "Find Freelancers" },
     { href: "/how-it-works", label: "How It Works" },
   ]
 
@@ -33,7 +120,6 @@ export default function Navbar() {
           <Link href="/" className="flex items-center space-x-2">
             <Logo />
           </Link>
-
           <nav className="hidden md:flex gap-6">
             {routes.map((route) => (
               <Link
@@ -51,21 +137,22 @@ export default function Navbar() {
         </div>
 
         <div className="hidden md:flex items-center gap-4">
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search services..."
-              className="w-full bg-background pl-8 md:w-[300px] lg:w-[300px]"
-            />
-          </div>
-
           <ModeToggle />
 
           {isAuthenticated ? (
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon">
-                <Bell className="h-5 w-5" />
+              <Button variant="outline" size="icon" className="relative" asChild>
+                <Link href="/notifications">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
+                    >
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </Badge>
+                  )}
+                </Link>
               </Button>
 
               <DropdownMenu>
@@ -79,15 +166,22 @@ export default function Navbar() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard">Dashboard</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
                     <Link href="/profile">Profile</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/settings">Settings</Link>
+                    <Link href="/dashboard">Dashboard</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>Logout</DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/notifications">
+                      Notifications
+                      {unreadCount > 0 && (
+                        <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 text-xs">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </Badge>
+                      )}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -139,8 +233,18 @@ export default function Navbar() {
 
               {isAuthenticated ? (
                 <div className="flex items-center gap-4">
-                  <Button variant="ghost" size="icon">
-                    <Bell className="h-5 w-5" />
+                  <Button variant="outline" size="icon" className="relative" asChild>
+                    <Link href="/notifications">
+                      <Bell className="h-5 w-5" />
+                      {unreadCount > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
+                        >
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </Badge>
+                      )}
+                    </Link>
                   </Button>
                   <Link href="/profile">
                     <Avatar className="h-8 w-8">
@@ -152,10 +256,10 @@ export default function Navbar() {
               ) : (
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" asChild>
-                    <Link href="/login">Login</Link>
+                    <Link href="/auth/login">Login</Link>
                   </Button>
                   <Button asChild>
-                    <Link href="/signup">Sign Up</Link>
+                    <Link href="/auth/register">Sign Up</Link>
                   </Button>
                 </div>
               )}

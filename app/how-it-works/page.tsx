@@ -45,7 +45,7 @@ export default function HowItWorksPage() {
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg">
-                <Link href="/jobs">Browse Jobs</Link>
+                <Link href="/services">Browse Available Services</Link>
               </Button>
             </div>
           </div>
@@ -197,10 +197,10 @@ export default function HowItWorksPage() {
                   <div className="order-1 md:order-2 flex justify-center">
                     <div className="relative w-full max-w-sm aspect-square">
                       <Image
-                        src="/placeholder.svg?height=400&width=400"
+                        src="/howitworks1.jpg?height=400&width=400"
                         alt="Create profile illustration"
                         fill
-                        className="object-contain"
+                        className="object-cover rounded-xl"
                       />
                     </div>
                   </div>
@@ -211,10 +211,10 @@ export default function HowItWorksPage() {
                   <div className="flex justify-center">
                     <div className="relative w-full max-w-sm aspect-square">
                       <Image
-                        src="/placeholder.svg?height=400&width=400"
+                        src="/howitworks2.jpg?height=400&width=400"
                         alt="Browse jobs illustration"
                         fill
-                        className="object-contain"
+                        className="object-cover rounded-xl"
                       />
                     </div>
                   </div>
@@ -277,10 +277,10 @@ export default function HowItWorksPage() {
                   <div className="order-1 md:order-2 flex justify-center">
                     <div className="relative w-full max-w-sm aspect-square">
                       <Image
-                        src="/placeholder.svg?height=400&width=400"
+                        src="/howitworks3.jpg?height=400&width=400"
                         alt="AI assistance illustration"
                         fill
-                        className="object-contain"
+                        className="object-cover rounded-xl"
                       />
                     </div>
                   </div>
@@ -291,10 +291,10 @@ export default function HowItWorksPage() {
                   <div className="flex justify-center">
                     <div className="relative w-full max-w-sm aspect-square">
                       <Image
-                        src="/placeholder.svg?height=400&width=400"
+                        src="/howitworks4.jpg?height=400&width=400"
                         alt="Complete projects illustration"
                         fill
-                        className="object-contain"
+                        className="object-cover rounded-xl"
                       />
                     </div>
                   </div>
@@ -357,10 +357,10 @@ export default function HowItWorksPage() {
                   <div className="order-1 md:order-2 flex justify-center">
                     <div className="relative w-full max-w-sm aspect-square">
                       <Image
-                        src="/placeholder.svg?height=400&width=400"
+                        src="/howitworks5.jpg?height=400&width=400"
                         alt="Mentorship illustration"
                         fill
-                        className="object-contain"
+                        className="object-cover rounded-xl"
                       />
                     </div>
                   </div>
@@ -399,10 +399,10 @@ export default function HowItWorksPage() {
                   <div className="order-1 md:order-2 flex justify-center">
                     <div className="relative w-full max-w-sm aspect-square">
                       <Image
-                        src="/placeholder.svg?height=400&width=400"
+                        src="/howitworks6.jpg?height=400&width=400"
                         alt="Client registration illustration"
                         fill
-                        className="object-contain"
+                        className="object-cover rounded-xl"
                       />
                     </div>
                   </div>
@@ -413,10 +413,10 @@ export default function HowItWorksPage() {
                   <div className="flex justify-center">
                     <div className="relative w-full max-w-sm aspect-square">
                       <Image
-                        src="/placeholder.svg?height=400&width=400"
+                        src="/howitworks7.jpg?height=400&width=400"
                         alt="Post job illustration"
                         fill
-                        className="object-contain"
+                        className="object-cover rounded-xl"
                       />
                     </div>
                   </div>
@@ -479,10 +479,10 @@ export default function HowItWorksPage() {
                   <div className="order-1 md:order-2 flex justify-center">
                     <div className="relative w-full max-w-sm aspect-square">
                       <Image
-                        src="/placeholder.svg?height=400&width=400"
+                        src="/howitworks8.jpg?height=400&width=400"
                         alt="Review applications illustration"
                         fill
-                        className="object-contain"
+                        className="object-cover rounded-xl"
                       />
                     </div>
                   </div>
@@ -493,10 +493,10 @@ export default function HowItWorksPage() {
                   <div className="flex justify-center">
                     <div className="relative w-full max-w-sm aspect-square">
                       <Image
-                        src="/placeholder.svg?height=400&width=400"
+                        src="/howitworks9.jpg?height=400&width=400"
                         alt="Manage project illustration"
                         fill
-                        className="object-contain"
+                        className="object-cover rounded-xl"
                       />
                     </div>
                   </div>
@@ -558,10 +558,10 @@ export default function HowItWorksPage() {
                   <div className="order-1 md:order-2 flex justify-center">
                     <div className="relative w-full max-w-sm aspect-square">
                       <Image
-                        src="/placeholder.svg?height=400&width=400"
+                        src="/howitworks10.jpg?height=400&width=400"
                         alt="Complete project illustration"
                         fill
-                        className="object-contain"
+                        className="object-cover rounded-xl"
                       />
                     </div>
                   </div>
@@ -916,7 +916,7 @@ export default function HowItWorksPage() {
                 variant="outline"
                 className="bg-transparent text-primary-foreground border-primary-foreground hover:bg-primary-foreground hover:text-primary"
               >
-                <Link href="/jobs">Browse Available Jobs</Link>
+                <Link href="/services"> Jobs</Link>
               </Button>
             </div>
           </div>

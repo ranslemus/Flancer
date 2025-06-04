@@ -1,648 +1,568 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Progress } from "@/components/ui/progress"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  Legend,
-} from "@/components/ui/chart"
-import { ArrowUpRight, Briefcase, CheckCircle, Clock, DollarSign, MessageSquare, Star, Users } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Bell, Briefcase, Calendar, CheckCircle, DollarSign, PlusCircle, Star } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
-// Mock data for the dashboard
-const projectStats = {
-  completed: 12,
-  inProgress: 3,
-  totalEarnings: 4850,
-  clientSatisfaction: 4.8,
+// Types
+interface ClientData {
+  user_id: string
+  full_name: string
+  role: "client" | "freelancer"
+  email: string
+  phone?: string
+  created_at: string
 }
 
-const recentProjects = [
-  {
-    id: 1,
-    title: "E-commerce Website Redesign",
-    client: "Fashion Boutique",
-    status: "Completed",
-    earnings: 950,
-    date: "Apr 15, 2023",
-    rating: 5,
-  },
-  {
-    id: 2,
-    title: "Mobile App UI Development",
-    client: "Health Tracker",
-    status: "In Progress",
-    earnings: 650,
-    date: "May 2, 2023",
-    progress: 75,
-  },
-  {
-    id: 3,
-    title: "Landing Page Creation",
-    client: "Tech Startup",
-    status: "Completed",
-    earnings: 450,
-    date: "Apr 28, 2023",
-    rating: 4.5,
-  },
-]
+interface FreelancerData {
+  user_id: string
+  earnings: number
+  skills: string[]
+  services_id?: string
+  jobs_finished: number
+  ongoing_jobs: number
+  rating: number
+  bio?: string
+}
 
-const monthlyEarnings = [
-  { name: "Jan", earnings: 350 },
-  { name: "Feb", earnings: 450 },
-  { name: "Mar", earnings: 320 },
-  { name: "Apr", earnings: 580 },
-  { name: "May", earnings: 650 },
-  { name: "Jun", earnings: 800 },
-]
+interface ServiceData {
+  id: string
+  service_name: string
+  price_range: string
+  service_description: string
+  service_pictures?: string
+}
 
-const skillDistribution = [
-  { name: "React", value: 40 },
-  { name: "Next.js", value: 30 },
-  { name: "Tailwind", value: 20 },
-  { name: "Node.js", value: 10 },
-]
+interface JobData {
+  id: string
+  title: string
+  description: string
+  budget: number
+  deadline: string
+  status: "not_done" | "in_progress" | "submitted" | "paid"
+  client_name: string
+  freelancer_id?: string
+  created_at: string
+}
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"]
+export default function Dashboard() {
+  const [user, setUser] = useState<any>(null)
+  const [clientData, setClientData] = useState<ClientData | null>(null)
+  const [freelancerData, setFreelancerData] = useState<FreelancerData | null>(null)
+  const [serviceData, setServiceData] = useState<ServiceData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [clientJobs, setClientJobs] = useState<JobData[]>([])
+  const [freelancerJobs, setFreelancerJobs] = useState<JobData[]>([])
 
-const projectTypes = [
-  { name: "Web Dev", count: 8 },
-  { name: "Mobile", count: 4 },
-  { name: "UI/UX", count: 3 },
-]
+  const supabase = createClientComponentClient()
 
-export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState("overview")
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        setUser(user)
+        await fetchClientData(user.id)
+      }
+      setLoading(false)
+    }
+    getUser()
+  }, [])
+
+  const fetchClientData = async (userId: string) => {
+    try {
+      const { data: client, error: clientError } = await supabase
+        .from("client")
+        .select("*")
+        .eq("user_id", userId)
+        .single()
+
+      if (clientError) {
+        console.error("Error fetching client data:", clientError)
+        return
+      }
+
+      setClientData(client)
+
+      if (client.role === "freelancer") {
+        await fetchFreelancerData(userId)
+      }
+
+      await fetchJobs(userId, client.role)
+    } catch (error) {
+      console.error("Error in fetchClientData:", error)
+    }
+  }
+
+  const fetchFreelancerData = async (userId: string) => {
+    try {
+      const { data: freelancer, error: freelancerError } = await supabase
+        .from("freelancer")
+        .select("*")
+        .eq("user_id", userId)
+        .single()
+
+      if (freelancerError) {
+        console.error("Error fetching freelancer data:", freelancerError)
+        return
+      }
+
+      setFreelancerData(freelancer)
+
+      if (freelancer.services_id) {
+        const { data: service, error: serviceError } = await supabase
+          .from("serviceList")
+          .select("*")
+          .eq("service_id", freelancer.services_id)
+          .single()
+
+        if (!serviceError) {
+          setServiceData(service)
+        }
+      }
+    } catch (error) {
+      console.error("Error in fetchFreelancerData:", error)
+    }
+  }
+
+  const fetchJobs = async (userId: string, role: "client" | "freelancer") => {
+    try {
+      if (role === "client") {
+        const { data: jobs, error } = await supabase
+          .from("jobs")
+          .select("*")
+          .eq("client_id", userId)
+          .order("created_at", { ascending: false })
+
+        if (!error) {
+          setClientJobs(jobs || [])
+        }
+      } else {
+        const { data: jobs, error } = await supabase
+          .from("jobs")
+          .select("*")
+          .eq("freelancer_id", userId)
+          .order("created_at", { ascending: false })
+
+        if (!error) {
+          setFreelancerJobs(jobs || [])
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching jobs:", error)
+    }
+  }
+
+  const handleBecomeFreelancer = async () => {
+    if (!user || !clientData) return
+
+    try {
+      console.log("Starting freelancer setup for user:", user.id)
+
+      const { data: existingFreelancer, error: checkError } = await supabase
+        .from("freelancer")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .single()
+
+      if (checkError && checkError.code !== "PGRST116") {
+        console.error("Error checking existing freelancer:", checkError)
+        alert(`Error checking freelancer record: ${checkError.message}`)
+        return
+      }
+
+      if (!existingFreelancer) {
+        console.log("Creating new freelancer record...")
+        const { error: freelancerError } = await supabase.from("freelancer").insert({
+          user_id: user.id,
+          earnings: 0.0,
+          skills: [],
+          jobs_finished: 0,
+          ongoing_jobs: 0,
+          rating: 0,
+        })
+
+        if (freelancerError) {
+          console.error("Detailed freelancer error:", {
+            message: freelancerError.message,
+            details: freelancerError.details,
+            hint: freelancerError.hint,
+            code: freelancerError.code,
+          })
+          alert(
+            `Error creating freelancer record: ${freelancerError.message}\nDetails: ${freelancerError.details || "None"}\nHint: ${freelancerError.hint || "None"}`,
+          )
+          return
+        }
+
+        console.log("Freelancer record created successfully")
+      }
+
+      // Direct to the freelancer-setup page (now at root level)
+      window.location.href = "/freelancer-setup"
+    } catch (error) {
+      console.error("Unexpected error in handleBecomeFreelancer:", error)
+      alert(`Unexpected error: ${error.message}`)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="container px-4 py-8 md:px-6 md:py-12">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!clientData) {
+    return (
+      <div className="container px-4 py-8 md:px-6 md:py-12">
+        <div className="text-center">
+          <p>Error loading user data. Please try again.</p>
+        </div>
+      </div>
+    )
+  }
+
+  const isFreelancer = clientData.role === "freelancer"
+  const activeJobs = isFreelancer ? freelancerJobs : clientJobs
+  const completedJobs = activeJobs.filter((job) => job.status === "paid").length
+  const inProgressJobs = activeJobs.filter((job) => job.status === "in_progress").length
 
   return (
     <div className="container px-4 py-8 md:px-6 md:py-12">
-      <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Here's an overview of your freelancing activity.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link href="/profile">View Profile</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/jobs">Find Jobs</Link>
-          </Button>
+      {/* Header Section */}
+      <div className="mb-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16 border-4 border-background">
+              <AvatarFallback>{clientData.full_name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Hi, {clientData.full_name}</h1>
+              <p className="text-muted-foreground capitalize">{clientData.role}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/edit-profile">Edit Profile</Link>
+            </Button>
+            {!isFreelancer && (
+              <Button size="sm" variant="secondary" onClick={handleBecomeFreelancer}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Become Freelancer
+              </Button>
+            )}
+            {isFreelancer && (
+              <Button size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Post New Job
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-8" onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="projects">Projects</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="messages">Messages</TabsTrigger>
+      {/* Role-based Tabs */}
+      <Tabs defaultValue={isFreelancer ? "freelancer" : "client"} className="space-y-4">
+        <TabsList className={`grid ${isFreelancer ? "grid-cols-2" : "grid-cols-1"} md:w-auto`}>
+          <TabsTrigger value="client">Client Dashboard</TabsTrigger>
+          {isFreelancer && <TabsTrigger value="freelancer">Freelancer Dashboard</TabsTrigger>}
         </TabsList>
 
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-8">
-          {/* Stats Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Client Dashboard */}
+        <TabsContent value="client" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">${projectStats.totalEarnings}</div>
-                <p className="text-xs text-muted-foreground">+20.1% from last month</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Completed Projects</CardTitle>
-                <CheckCircle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{projectStats.completed}</div>
-                <p className="text-xs text-muted-foreground">+3 since last month</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
                 <Briefcase className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{projectStats.inProgress}</div>
-                <p className="text-xs text-muted-foreground">+1 new project this week</p>
+                <div className="text-2xl font-bold">{inProgressJobs}</div>
+                <p className="text-xs text-muted-foreground">Jobs currently in progress</p>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Client Satisfaction</CardTitle>
-                <Star className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Jobs Purchased</CardTitle>
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{projectStats.clientSatisfaction}/5</div>
-                <p className="text-xs text-muted-foreground">Based on {projectStats.completed} reviews</p>
+                <div className="text-2xl font-bold">{completedJobs}</div>
+                <p className="text-xs text-muted-foreground">Total completed jobs</p>
               </CardContent>
             </Card>
-          </div>
-
-          {/* Recent Projects */}
-          <div>
-            <h2 className="mb-4 text-xl font-semibold tracking-tight">Recent Projects</h2>
-            <div className="grid gap-4">
-              {recentProjects.map((project) => (
-                <Card key={project.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle>{project.title}</CardTitle>
-                        <CardDescription>Client: {project.client}</CardDescription>
-                      </div>
-                      <Badge variant={project.status === "Completed" ? "default" : "secondary"}>{project.status}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {project.status === "In Progress" ? (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Progress</span>
-                          <span>{project.progress}%</span>
-                        </div>
-                        <Progress value={project.progress} />
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <div className="flex text-primary">
-                          {Array.from({ length: Math.floor(project.rating) }).map((_, i) => (
-                            <Star key={i} className="h-4 w-4 fill-primary" />
-                          ))}
-                          {project.rating % 1 !== 0 && <Star className="h-4 w-4 fill-primary" />}
-                        </div>
-                        <span className="text-sm text-muted-foreground">{project.rating} rating</span>
-                      </div>
-                    )}
-                  </CardContent>
-                  <CardFooter className="flex justify-between">
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Clock className="mr-1 h-4 w-4" />
-                      {project.date}
-                    </div>
-                    <div className="flex items-center font-medium">
-                      <DollarSign className="mr-1 h-4 w-4" />
-                      {project.earnings}
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-            <div className="mt-4 flex justify-center">
-              <Button variant="outline" asChild>
-                <Link href="/projects">View All Projects</Link>
-              </Button>
-            </div>
-          </div>
-
-          {/* Earnings Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Earnings</CardTitle>
-              <CardDescription>Your earnings over the last 6 months</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyEarnings}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="earnings" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Projects Tab */}
-        <TabsContent value="projects" className="space-y-8">
-          <div className="grid gap-4 md:grid-cols-3">
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">All Projects</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{projectStats.completed + projectStats.inProgress}</div>
-              </CardContent>
-              <CardFooter>
-                <Button variant="ghost" className="w-full" asChild>
-                  <Link href="/projects">View All</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{projectStats.completed}</div>
-              </CardContent>
-              <CardFooter>
-                <Button variant="ghost" className="w-full" asChild>
-                  <Link href="/projects?status=completed">View Completed</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{projectStats.inProgress}</div>
-              </CardContent>
-              <CardFooter>
-                <Button variant="ghost" className="w-full" asChild>
-                  <Link href="/projects?status=in-progress">View Active</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Project Types</CardTitle>
-              <CardDescription>Distribution of your projects by type</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={projectTypes}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="count"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {projectTypes.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div>
-            <h2 className="mb-4 text-xl font-semibold tracking-tight">Recent Projects</h2>
-            <div className="grid gap-4">
-              {recentProjects.map((project) => (
-                <Card key={project.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle>{project.title}</CardTitle>
-                        <CardDescription>Client: {project.client}</CardDescription>
-                      </div>
-                      <Badge variant={project.status === "Completed" ? "default" : "secondary"}>{project.status}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {project.status === "In Progress" ? (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Progress</span>
-                          <span>{project.progress}%</span>
-                        </div>
-                        <Progress value={project.progress} />
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <div className="flex text-primary">
-                          {Array.from({ length: Math.floor(project.rating) }).map((_, i) => (
-                            <Star key={i} className="h-4 w-4 fill-primary" />
-                          ))}
-                          {project.rating % 1 !== 0 && <Star className="h-4 w-4 fill-primary" />}
-                        </div>
-                        <span className="text-sm text-muted-foreground">{project.rating} rating</span>
-                      </div>
-                    )}
-                  </CardContent>
-                  <CardFooter className="flex justify-between">
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Clock className="mr-1 h-4 w-4" />
-                      {project.date}
-                    </div>
-                    <div className="flex items-center font-medium">
-                      <DollarSign className="mr-1 h-4 w-4" />
-                      {project.earnings}
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* Analytics Tab */}
-        <TabsContent value="analytics" className="space-y-8">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg. Project Value</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  ${Math.round(projectStats.totalEarnings / projectStats.completed)}
-                </div>
-                <p className="text-xs text-muted-foreground">+12% from last month</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Proposal Success Rate</CardTitle>
-                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">68%</div>
-                <p className="text-xs text-muted-foreground">+5% from last month</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Profile Views</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">142</div>
-                <p className="text-xs text-muted-foreground">+18 since last week</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg. Response Time</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">2.4h</div>
-                <p className="text-xs text-muted-foreground">-0.5h from last month</p>
+                <div className="text-2xl font-bold">${activeJobs.reduce((sum, job) => sum + job.budget, 0)}</div>
+                <p className="text-xs text-muted-foreground">Across all projects</p>
               </CardContent>
             </Card>
           </div>
 
           <Card>
             <CardHeader>
-              <CardTitle>Earnings Trend</CardTitle>
-              <CardDescription>Your earnings growth over time</CardDescription>
+              <CardTitle>Active Jobs</CardTitle>
+              <CardDescription>Quick overview of your current projects</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={monthlyEarnings}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="earnings" stroke="#3b82f6" activeDot={{ r: 8 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              {activeJobs.length === 0 ? (
+                <div className="text-center py-8">
+                  <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No active jobs yet</p>
+                  <Button className="mt-4" asChild>
+                    <Link href="/services">Browse Available Services</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {activeJobs.slice(0, 3).map((job) => (
+                    <div key={job.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-1">
+                        <h4 className="font-medium">{job.title}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Budget: ${job.budget} • Due: {new Date(job.deadline).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={
+                            job.status === "paid"
+                              ? "default"
+                              : job.status === "submitted"
+                                ? "secondary"
+                                : job.status === "in_progress"
+                                  ? "outline"
+                                  : "destructive"
+                          }
+                        >
+                          {job.status.replace("_", " ")}
+                        </Badge>
+                        <Button size="sm" variant="outline">
+                          View Details
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Skills Distribution</CardTitle>
-              <CardDescription>Projects by skill category</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={skillDistribution}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {skillDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Growth Opportunities</CardTitle>
-              <CardDescription>Skills in demand that match your profile</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>React Native</span>
-                    <span>High Demand</span>
-                  </div>
-                  <Progress value={85} className="h-2" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>TypeScript</span>
-                    <span>Medium Demand</span>
-                  </div>
-                  <Progress value={65} className="h-2" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>GraphQL</span>
-                    <span>Medium Demand</span>
-                  </div>
-                  <Progress value={50} className="h-2" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>AWS</span>
-                    <span>High Demand</span>
-                  </div>
-                  <Progress value={80} className="h-2" />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full" asChild>
-                <Link href="/skills">Improve Your Skills</Link>
-              </Button>
-            </CardFooter>
           </Card>
         </TabsContent>
 
-        {/* Messages Tab */}
-        <TabsContent value="messages" className="space-y-8">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* Freelancer Dashboard */}
+        {isFreelancer && (
+          <TabsContent value="freelancer" className="space-y-4">
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Unread Messages</CardTitle>
+              <CardHeader>
+                <CardTitle>Freelancer Profile</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3</div>
-              </CardContent>
-              <CardFooter>
-                <Button variant="ghost" className="w-full" asChild>
-                  <Link href="/messages">View Messages</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Active Chats</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">5</div>
-              </CardContent>
-              <CardFooter>
-                <Button variant="ghost" className="w-full" asChild>
-                  <Link href="/messages">View Chats</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Avg. Response Time</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">2.4h</div>
-              </CardContent>
-              <CardFooter>
-                <Button variant="ghost" className="w-full" asChild>
-                  <Link href="/messages/stats">View Stats</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-20 w-20">
+                        <AvatarFallback>{clientData.full_name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="text-xl font-semibold">{clientData.full_name}</h3>
+                        <div className="flex items-center gap-1">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-4 w-4 ${
+                                i < Math.floor(freelancerData?.rating || 0)
+                                  ? "fill-yellow-400 text-yellow-400"
+                                  : "text-gray-300"
+                              }`}
+                            />
+                          ))}
+                          <span className="ml-2 text-sm text-muted-foreground">{freelancerData?.rating || 0}/5.0</span>
+                        </div>
+                        {freelancerData?.bio && (
+                          <p className="text-sm text-muted-foreground mt-2">{freelancerData.bio}</p>
+                        )}
+                      </div>
+                    </div>
 
-          <div>
-            <h2 className="mb-4 text-xl font-semibold tracking-tight">Recent Messages</h2>
-            <div className="grid gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center space-x-4">
-                    <Avatar>
-                      <AvatarImage src="/placeholder.svg" />
-                      <AvatarFallback>JD</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <CardTitle className="text-base">John Doe</CardTitle>
-                      <CardDescription>E-commerce Website Redesign</CardDescription>
-                    </div>
+                    {/* Skills */}
+                    {freelancerData?.skills && freelancerData.skills.length > 0 && (
+                      <div>
+                        <h4 className="font-medium mb-2">Skills:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {freelancerData.skills.map((skill, index) => (
+                            <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800">
+                              {skill}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Services */}
+                    {serviceData && (
+                      <div>
+                        <h4 className="font-medium mb-2">Services:</h4>
+                        <div className="p-3 border rounded-lg">
+                          <h5 className="font-medium text-green-700">{serviceData.service_name}</h5>
+                          <p className="text-sm text-muted-foreground">{serviceData.service_description}</p>
+                          <p className="text-sm font-medium mt-1">Price Range: ${serviceData.price_range}</p>
+                          {serviceData.service_pictures && (
+                            <div className="mt-2">
+                              <img
+                                src={serviceData.service_pictures || "/placeholder.svg"}
+                                alt={serviceData.service_name}
+                                className="w-full h-32 object-cover rounded"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none"
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Hi there! I just reviewed your latest design mockups and they look fantastic. Could we schedule a
-                    call to discuss a few minor adjustments?
-                  </p>
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <div className="text-xs text-muted-foreground">2 hours ago</div>
-                  <Button size="sm">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Reply
-                  </Button>
-                </CardFooter>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center space-x-4">
-                    <Avatar>
-                      <AvatarImage src="/placeholder.svg" />
-                      <AvatarFallback>AS</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <CardTitle className="text-base">Alice Smith</CardTitle>
-                      <CardDescription>Mobile App UI Development</CardDescription>
-                    </div>
+
+                  {/* Freelancer Stats */}
+                  <div className="grid gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">${freelancerData?.earnings || 0}</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Ongoing Jobs</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{freelancerData?.ongoing_jobs || 0}</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Completed Jobs</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{freelancerData?.jobs_finished || 0}</div>
+                      </CardContent>
+                    </Card>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Just wanted to check in on the progress of the app screens. Do you have an updated timeline for when
-                    you'll have the next batch ready?
-                  </p>
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <div className="text-xs text-muted-foreground">Yesterday</div>
-                  <Button size="sm">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Reply
-                  </Button>
-                </CardFooter>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center space-x-4">
-                    <Avatar>
-                      <AvatarImage src="/placeholder.svg" />
-                      <AvatarFallback>RJ</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <CardTitle className="text-base">Robert Johnson</CardTitle>
-                      <CardDescription>Landing Page Creation</CardDescription>
-                    </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Deadline Reminders */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Deadline Reminders</CardTitle>
+                <CardDescription>Upcoming deadlines for your active projects</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {freelancerJobs.filter((job) => job.status === "in_progress").length === 0 ? (
+                  <div className="text-center py-8">
+                    <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No active deadlines</p>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    The landing page looks great! I've shared it with my team and they're very impressed. We'd like to
-                    discuss another project with you.
-                  </p>
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <div className="text-xs text-muted-foreground">2 days ago</div>
-                  <Button size="sm">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Reply
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
-            <div className="mt-4 flex justify-center">
-              <Button variant="outline" asChild>
-                <Link href="/messages">View All Messages</Link>
-              </Button>
-            </div>
-          </div>
-        </TabsContent>
+                ) : (
+                  <div className="space-y-3">
+                    {freelancerJobs
+                      .filter((job) => job.status === "in_progress")
+                      .slice(0, 3)
+                      .map((job) => {
+                        const daysLeft = Math.ceil(
+                          (new Date(job.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
+                        )
+                        return (
+                          <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <h4 className="font-medium">{job.title}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Due: {new Date(job.deadline).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <Badge variant={daysLeft <= 2 ? "destructive" : daysLeft <= 7 ? "outline" : "secondary"}>
+                              {daysLeft} days left
+                            </Badge>
+                          </div>
+                        )
+                      })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Jobs Tab */}
+            <Card>
+              <CardHeader>
+                <CardTitle>My Jobs</CardTitle>
+                <CardDescription>All jobs you're currently working on</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {freelancerJobs.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No jobs assigned yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {freelancerJobs.map((job) => (
+                      <div key={job.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-1">
+                          <h4 className="font-medium">{job.title}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Client: {job.client_name} • Budget: ${job.budget}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Due: {new Date(job.deadline).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              job.status === "paid"
+                                ? "default"
+                                : job.status === "submitted"
+                                  ? "secondary"
+                                  : job.status === "in_progress"
+                                    ? "outline"
+                                    : "destructive"
+                            }
+                          >
+                            {job.status.replace("_", " ")}
+                          </Badge>
+                          <Button size="sm" variant="outline">
+                            View Details
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

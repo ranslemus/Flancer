@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,128 +11,47 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Search, Filter, Bookmark, Star, Clock, DollarSign } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Search, Filter, Bookmark, Star, Clock, DollarSign, Loader2 } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
-// Mock data for services
-const servicesData = [
-  {
-    id: 1,
-    title: "Responsive Website Development",
-    freelancer: {
-      name: "Alex Johnson",
-      avatar: "/placeholder.svg",
-      rating: 4.9,
-      reviews: 24,
-    },
-    location: "Remote",
-    type: "Web Development",
-    price: "$500-$1000",
-    deliveryTime: "2-4 weeks",
-    skills: ["React", "Next.js", "Tailwind CSS"],
-    description: "I'll build a responsive, modern website for your business using the latest technologies.",
-    postedDate: "2 days ago",
-    level: "Intermediate",
-    category: "Web Development",
-  },
-  {
-    id: 2,
-    title: "Mobile App UI Design",
-    freelancer: {
-      name: "Sarah Parker",
-      avatar: "/placeholder.svg",
-      rating: 4.8,
-      reviews: 18,
-    },
-    location: "Remote",
-    type: "UI/UX Design",
-    price: "$300-$600",
-    deliveryTime: "1-2 weeks",
-    skills: ["Figma", "UI/UX", "Mobile Design"],
-    description: "I'll create a clean, modern UI design for your mobile application with user-friendly interfaces.",
-    postedDate: "5 days ago",
-    level: "Intermediate",
-    category: "UI/UX Design",
-  },
-  {
-    id: 3,
-    title: "WordPress Website Setup",
-    freelancer: {
-      name: "Michael Brown",
-      avatar: "/placeholder.svg",
-      rating: 4.7,
-      reviews: 12,
-    },
-    location: "Remote",
-    type: "Web Development",
-    price: "$200-$400",
-    deliveryTime: "1 week",
-    skills: ["WordPress", "PHP", "CSS"],
-    description: "I'll set up and customize a WordPress website with all essential plugins and features you need.",
-    postedDate: "1 week ago",
-    level: "Beginner",
-    category: "Web Development",
-  },
-  {
-    id: 4,
-    title: "Android App Development",
-    freelancer: {
-      name: "David Wilson",
-      avatar: "/placeholder.svg",
-      rating: 4.9,
-      reviews: 31,
-    },
-    location: "Remote",
-    type: "Mobile Development",
-    price: "$800-$1500",
-    deliveryTime: "3-5 weeks",
-    skills: ["Java", "Android Studio", "Firebase"],
-    description: "I'll develop a custom Android app with user authentication, database integration, and more.",
-    postedDate: "3 days ago",
-    level: "Intermediate",
-    category: "Mobile Apps",
-  },
-  {
-    id: 5,
-    title: "Landing Page Design & Development",
-    freelancer: {
-      name: "Emma Roberts",
-      avatar: "/placeholder.svg",
-      rating: 4.6,
-      reviews: 9,
-    },
-    location: "Remote",
-    type: "Web Development",
-    price: "$300-$500",
-    deliveryTime: "1-2 weeks",
-    skills: ["HTML", "CSS", "JavaScript"],
-    description: "I'll create a high-converting landing page for your product or service with responsive design.",
-    postedDate: "4 days ago",
-    level: "Beginner",
-    category: "Web Development",
-  },
-  {
-    id: 6,
-    title: "Database Design & Implementation",
-    freelancer: {
-      name: "James Taylor",
-      avatar: "/placeholder.svg",
-      rating: 4.8,
-      reviews: 15,
-    },
-    location: "Remote",
-    type: "Database",
-    price: "$400-$700",
-    deliveryTime: "2 weeks",
-    skills: ["SQL", "Database Design", "ERD"],
-    description: "I'll design and implement a database schema for your application with complete documentation.",
-    postedDate: "1 week ago",
-    level: "Intermediate",
-    category: "Database",
-  },
-]
+interface ServiceData {
+  service_id: string
+  freelancer_id: string
+  service_name: string
+  price_range: [number, number]
+  service_description: string
+  category: string[]
+  service_pictures?: string
+  created_at: string
+}
+
+interface FreelancerData {
+  user_id: string
+  earnings: number
+  skills: string[]
+  jobs_finished: number
+  ongoing_jobs: number
+  rating: number
+  bio?: string
+}
+
+interface ClientData {
+  user_id: string
+  full_name: string
+  email: string
+  created_at: string
+}
+
+interface CombinedServiceData extends ServiceData {
+  freelancer?: FreelancerData
+  freelancer_profile?: ClientData
+}
 
 export default function ServicesPage() {
+  const [services, setServices] = useState<CombinedServiceData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [filters, setFilters] = useState({
     categories: [],
@@ -140,57 +59,162 @@ export default function ServicesPage() {
     priceRange: [0, 2000],
     deliveryTime: [],
   })
+  const [sortBy, setSortBy] = useState("newest")
 
-  // Filter services based on search term and filters
-  const filteredServices = servicesData.filter((service) => {
-    // Search term filter
-    if (
-      searchTerm &&
-      !(
-        service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.skills?.some((skill) => skill?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        service.freelancer?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    ) {
-      return false
-    }
+  const supabase = createClientComponentClient()
 
-    // Category filter
-    if (filters.categories.length > 0 && !filters.categories.includes(service.category)) {
-      return false
-    }
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        console.log("🔍 Fetching services from serviceList table...")
 
-    // Level filter
-    if (filters.level.length > 0 && !filters.level.includes(service.level)) {
-      return false
-    }
+        // Fetch all services
+        const { data: servicesData, error: servicesError } = await supabase
+          .from("serviceList")
+          .select("*")
+          .order("created_at", { ascending: false })
 
-    // Price range filter
-    const serviceMinPrice = Number.parseInt(service.price?.split("-")[0].replace(/\D/g, "") || "0")
-    if (serviceMinPrice < filters.priceRange[0] || serviceMinPrice > filters.priceRange[1]) {
-      return false
-    }
+        if (servicesError) {
+          console.error("❌ Services error:", servicesError)
+          setError(`Failed to fetch services: ${servicesError.message}`)
+          return
+        }
 
-    // Delivery time filter
-    if (filters.deliveryTime.length > 0) {
-      const deliveryMatch = filters.deliveryTime.some((time) => {
-        if (time === "short" && service.deliveryTime?.includes("1")) return true
-        if (time === "medium" && service.deliveryTime?.includes("2")) return true
-        if (
-          time === "long" &&
-          (service.deliveryTime?.includes("3") ||
-            service.deliveryTime?.includes("4") ||
-            service.deliveryTime?.includes("5"))
+        console.log("✅ Services fetched:", servicesData?.length || 0)
+
+        if (!servicesData || servicesData.length === 0) {
+          setServices([])
+          return
+        }
+
+        // Get unique freelancer IDs
+        const freelancerIds = [...new Set(servicesData.map((service) => service.freelancer_id))]
+        console.log("👥 Fetching data for freelancers:", freelancerIds.length)
+
+        // Fetch freelancer data
+        const { data: freelancersData, error: freelancersError } = await supabase
+          .from("freelancer")
+          .select("*")
+          .in("user_id", freelancerIds)
+
+        if (freelancersError) {
+          console.warn("⚠️ Freelancers error:", freelancersError)
+        }
+
+        // Fetch client profiles
+        const { data: clientsData, error: clientsError } = await supabase
+          .from("client")
+          .select("*")
+          .in("user_id", freelancerIds)
+
+        if (clientsError) {
+          console.warn("⚠️ Clients error:", clientsError)
+        }
+
+        // Combine the data
+        const combinedServices: CombinedServiceData[] = servicesData.map((service) => ({
+          ...service,
+          freelancer: freelancersData?.find((f) => f.user_id === service.freelancer_id),
+          freelancer_profile: clientsData?.find((c) => c.user_id === service.freelancer_id),
+        }))
+
+        console.log("✅ Combined services data:", combinedServices.length)
+        setServices(combinedServices)
+
+        // Calculate max price from all services
+        const maxPrice = Math.max(
+          ...combinedServices
+            .filter((service) => service.price_range && Array.isArray(service.price_range))
+            .map((service) => service.price_range[1]),
         )
-          return true
-        return false
-      })
-      if (!deliveryMatch) return false
+
+        const finalMaxPrice = maxPrice > 0 ? Math.ceil(maxPrice / 100) * 100 : 2000 // Round up to nearest 100
+
+        // Update filters with dynamic max price
+        setFilters((prev) => ({
+          ...prev,
+          priceRange: [0, finalMaxPrice],
+        }))
+      } catch (error) {
+        console.error("💥 Unexpected error:", error)
+        setError("An unexpected error occurred while fetching services")
+      } finally {
+        setLoading(false)
+      }
     }
 
-    return true
-  })
+    fetchServices()
+  }, [])
+
+  // Get top 10 most popular categories from services
+  const availableCategories = (() => {
+    const categoryCount = {}
+    services.forEach((service) => {
+      service.category?.forEach((cat) => {
+        categoryCount[cat] = (categoryCount[cat] || 0) + 1
+      })
+    })
+
+    return Object.entries(categoryCount)
+      .sort(([, a], [, b]) => b - a) // Sort by count descending
+      .slice(0, 10) // Take top 10
+      .map(([category]) => category)
+  })()
+
+  // Filter and sort services based on search term, filters, and sort option
+  const filteredAndSortedServices = services
+    .filter((service) => {
+      // Search term filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase()
+        const matchesSearch =
+          service.service_name?.toLowerCase().includes(searchLower) ||
+          service.service_description?.toLowerCase().includes(searchLower) ||
+          service.category?.some((cat) => cat?.toLowerCase().includes(searchLower)) ||
+          service.freelancer?.skills?.some((skill) => skill?.toLowerCase().includes(searchLower)) ||
+          service.freelancer_profile?.full_name?.toLowerCase().includes(searchLower)
+
+        if (!matchesSearch) return false
+      }
+
+      // Category filter
+      if (filters.categories.length > 0) {
+        const hasMatchingCategory = service.category?.some((cat) => filters.categories.includes(cat))
+        if (!hasMatchingCategory) return false
+      }
+
+      // Price range filter
+      if (service.price_range && Array.isArray(service.price_range)) {
+        const [minPrice, maxPrice] = service.price_range
+        if (minPrice < filters.priceRange[0] || maxPrice > filters.priceRange[1]) {
+          return false
+        }
+      }
+
+      return true
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "newest":
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        case "oldest":
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        case "price-high":
+          const maxPriceA = a.price_range?.[1] || 0
+          const maxPriceB = b.price_range?.[1] || 0
+          return maxPriceB - maxPriceA
+        case "price-low":
+          const minPriceA = a.price_range?.[0] || 0
+          const minPriceB = b.price_range?.[0] || 0
+          return minPriceA - minPriceB
+        case "rating":
+          const ratingA = a.freelancer?.rating || 0
+          const ratingB = b.freelancer?.rating || 0
+          return ratingB - ratingA
+        default:
+          return 0
+      }
+    })
 
   const handleCategoryChange = (category: string) => {
     setFilters((prev) => {
@@ -199,24 +223,6 @@ export default function ServicesPage() {
         : [...prev.categories, category]
 
       return { ...prev, categories: newCategories }
-    })
-  }
-
-  const handleLevelChange = (level: string) => {
-    setFilters((prev) => {
-      const newLevel = prev.level.includes(level) ? prev.level.filter((d) => d !== level) : [...prev.level, level]
-
-      return { ...prev, level: newLevel }
-    })
-  }
-
-  const handleDeliveryTimeChange = (time: string) => {
-    setFilters((prev) => {
-      const newDeliveryTime = prev.deliveryTime.includes(time)
-        ? prev.deliveryTime.filter((d) => d !== time)
-        : [...prev.deliveryTime, time]
-
-      return { ...prev, deliveryTime: newDeliveryTime }
     })
   }
 
@@ -232,6 +238,45 @@ export default function ServicesPage() {
       deliveryTime: [],
     })
     setSearchTerm("")
+    setSortBy("newest")
+  }
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInMs = now.getTime() - date.getTime()
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
+
+    if (diffInDays === 0) return "Today"
+    if (diffInDays === 1) return "1 day ago"
+    if (diffInDays < 7) return `${diffInDays} days ago`
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} week${Math.floor(diffInDays / 7) > 1 ? "s" : ""} ago`
+    return `${Math.floor(diffInDays / 30)} month${Math.floor(diffInDays / 30) > 1 ? "s" : ""} ago`
+  }
+
+  if (loading) {
+    return (
+      <div className="container px-4 py-8 md:px-6 md:py-12">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p>Loading services...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container px-4 py-8 md:px-6 md:py-12">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Error Loading Services</h1>
+          <p className="text-muted-foreground mb-6">{error}</p>
+          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -256,75 +301,25 @@ export default function ServicesPage() {
               </Button>
             </div>
 
-            <Accordion type="multiple" defaultValue={["category", "level", "price", "delivery"]}>
+            <Accordion type="multiple" defaultValue={["category", "price"]}>
               <AccordionItem value="category">
                 <AccordionTrigger>Category</AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="web-dev"
-                        checked={filters.categories.includes("Web Development")}
-                        onCheckedChange={() => handleCategoryChange("Web Development")}
-                      />
-                      <Label htmlFor="web-dev">Web Development</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="mobile-apps"
-                        checked={filters.categories.includes("Mobile Apps")}
-                        onCheckedChange={() => handleCategoryChange("Mobile Apps")}
-                      />
-                      <Label htmlFor="mobile-apps">Mobile Apps</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="ui-ux"
-                        checked={filters.categories.includes("UI/UX Design")}
-                        onCheckedChange={() => handleCategoryChange("UI/UX Design")}
-                      />
-                      <Label htmlFor="ui-ux">UI/UX Design</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="database"
-                        checked={filters.categories.includes("Database")}
-                        onCheckedChange={() => handleCategoryChange("Database")}
-                      />
-                      <Label htmlFor="database">Database</Label>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="level">
-                <AccordionTrigger>Experience Level</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="beginner"
-                        checked={filters.level.includes("Beginner")}
-                        onCheckedChange={() => handleLevelChange("Beginner")}
-                      />
-                      <Label htmlFor="beginner">Beginner</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="intermediate"
-                        checked={filters.level.includes("Intermediate")}
-                        onCheckedChange={() => handleLevelChange("Intermediate")}
-                      />
-                      <Label htmlFor="intermediate">Intermediate</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="advanced"
-                        checked={filters.level.includes("Advanced")}
-                        onCheckedChange={() => handleLevelChange("Advanced")}
-                      />
-                      <Label htmlFor="advanced">Advanced</Label>
-                    </div>
+                    {availableCategories.length > 0 ? (
+                      availableCategories.map((category) => (
+                        <div key={category} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`category-${category}`}
+                            checked={filters.categories.includes(category)}
+                            onCheckedChange={() => handleCategoryChange(category)}
+                          />
+                          <Label htmlFor={`category-${category}`}>{category}</Label>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No categories available</p>
+                    )}
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -334,8 +329,8 @@ export default function ServicesPage() {
                 <AccordionContent>
                   <div className="space-y-4">
                     <Slider
-                      defaultValue={[0, 2000]}
-                      max={2000}
+                      defaultValue={[0, filters.priceRange[1]]}
+                      max={filters.priceRange[1]}
                       step={50}
                       value={filters.priceRange}
                       onValueChange={handlePriceRangeChange}
@@ -343,38 +338,6 @@ export default function ServicesPage() {
                     <div className="flex items-center justify-between">
                       <span>${filters.priceRange[0]}</span>
                       <span>${filters.priceRange[1]}</span>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="delivery">
-                <AccordionTrigger>Delivery Time</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="short"
-                        checked={filters.deliveryTime.includes("short")}
-                        onCheckedChange={() => handleDeliveryTimeChange("short")}
-                      />
-                      <Label htmlFor="short">Short (&lt; 1 week)</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="medium"
-                        checked={filters.deliveryTime.includes("medium")}
-                        onCheckedChange={() => handleDeliveryTimeChange("medium")}
-                      />
-                      <Label htmlFor="medium">Medium (1-2 weeks)</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="long"
-                        checked={filters.deliveryTime.includes("long")}
-                        onCheckedChange={() => handleDeliveryTimeChange("long")}
-                      />
-                      <Label htmlFor="long">Long (3+ weeks)</Label>
                     </div>
                   </div>
                 </AccordionContent>
@@ -397,7 +360,7 @@ export default function ServicesPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Select defaultValue="newest">
+            <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
@@ -414,42 +377,46 @@ export default function ServicesPage() {
           {/* Results Count */}
           <div className="mb-4">
             <p className="text-sm text-muted-foreground">
-              Showing {filteredServices.length} of {servicesData.length} services
+              Showing {filteredAndSortedServices.length} of {services.length} services
             </p>
           </div>
 
           {/* Service Listings */}
           <div className="grid gap-4">
-            {filteredServices.length > 0 ? (
-              filteredServices.map((service) => (
-                <Card key={service.id} className="overflow-hidden">
+            {filteredAndSortedServices.length > 0 ? (
+              filteredAndSortedServices.map((service) => (
+                <Card key={service.service_id} className="overflow-hidden">
                   <CardHeader className="pb-3">
                     <div className="flex justify-between">
                       <div>
                         <CardTitle className="text-xl">
-                          <Link href={`/services/${service.id}`} className="hover:text-primary">
-                            {service.title}
+                          <Link href={`/services/${service.service_id}`} className="hover:text-primary">
+                            {service.service_name}
                           </Link>
                         </CardTitle>
                         <div className="mt-1 flex items-center text-sm">
                           <div className="flex items-center">
                             <Avatar className="h-6 w-6 mr-2">
-                              <AvatarImage
-                                src={service.freelancer.avatar || "/placeholder.svg"}
-                                alt={service.freelancer.name}
-                              />
-                              <AvatarFallback>{service.freelancer.name.charAt(0)}</AvatarFallback>
+                              <AvatarFallback>{service.freelancer_profile?.full_name?.charAt(0) || "?"}</AvatarFallback>
                             </Avatar>
-                            <span className="font-medium">{service.freelancer.name}</span>
+                            <span className="font-medium">
+                              {service.freelancer_profile?.full_name || "Unknown Freelancer"}
+                            </span>
                           </div>
+                          {service.freelancer && (
+                            <>
+                              <span className="mx-2">•</span>
+                              <div className="flex items-center">
+                                <Star className="h-3 w-3 fill-yellow-500 text-yellow-500 mr-1" />
+                                <span>{service.freelancer.rating || 0}</span>
+                                <span className="text-muted-foreground ml-1">
+                                  ({service.freelancer.jobs_finished || 0})
+                                </span>
+                              </div>
+                            </>
+                          )}
                           <span className="mx-2">•</span>
-                          <div className="flex items-center">
-                            <Star className="h-3 w-3 fill-yellow-500 text-yellow-500 mr-1" />
-                            <span>{service.freelancer.rating}</span>
-                            <span className="text-muted-foreground ml-1">({service.freelancer.reviews})</span>
-                          </div>
-                          <span className="mx-2">•</span>
-                          <span className="text-muted-foreground">{service.postedDate}</span>
+                          <span className="text-muted-foreground">{formatTimeAgo(service.created_at)}</span>
                         </div>
                       </div>
                       <Button variant="ghost" size="icon">
@@ -460,29 +427,41 @@ export default function ServicesPage() {
                   </CardHeader>
                   <CardContent className="pb-3">
                     <div className="flex flex-wrap gap-2 mb-3">
-                      <Badge variant="secondary">{service.category}</Badge>
-                      <Badge variant="outline">{service.level}</Badge>
-                      {service.skills.map((skill) => (
-                        <Badge key={skill} variant="outline">
+                      {service.category?.map((cat, index) => (
+                        <Badge key={index} variant="secondary">
+                          {cat}
+                        </Badge>
+                      ))}
+                      {service.freelancer?.skills?.slice(0, 3).map((skill, index) => (
+                        <Badge key={index} variant="outline">
                           {skill}
                         </Badge>
                       ))}
+                      {service.freelancer?.skills && service.freelancer.skills.length > 3 && (
+                        <Badge variant="outline">+{service.freelancer.skills.length - 3} more</Badge>
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{service.description}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{service.service_description}</p>
                     <div className="mt-4 flex flex-wrap gap-4 text-sm">
                       <div className="flex items-center">
                         <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
-                        <span>{service.price}</span>
+                        <span>
+                          {service.price_range && Array.isArray(service.price_range)
+                            ? `$${service.price_range[0]} - $${service.price_range[1]}`
+                            : "Price not set"}
+                        </span>
                       </div>
-                      <div className="flex items-center">
-                        <Clock className="mr-1 h-4 w-4 text-muted-foreground" />
-                        <span>{service.deliveryTime}</span>
-                      </div>
+                      {service.freelancer && (
+                        <div className="flex items-center">
+                          <Clock className="mr-1 h-4 w-4 text-muted-foreground" />
+                          <span>{service.freelancer.jobs_finished || 0} jobs completed</span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                   <CardFooter>
                     <Button asChild>
-                      <Link href={`/services/${service.id}`}>View Details</Link>
+                      <Link href={`/services/${service.service_id}`}>View Details</Link>
                     </Button>
                   </CardFooter>
                 </Card>
@@ -493,8 +472,18 @@ export default function ServicesPage() {
                   <Search className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <h3 className="mb-2 text-xl font-semibold">No services found</h3>
-                <p className="mb-6 text-muted-foreground">Try adjusting your search or filter criteria</p>
-                <Button onClick={clearFilters}>Clear All Filters</Button>
+                <p className="mb-6 text-muted-foreground">
+                  {services.length === 0
+                    ? "No services have been created yet. Be the first to add a service!"
+                    : "Try adjusting your search or filter criteria"}
+                </p>
+                {services.length === 0 ? (
+                  <Button asChild>
+                    <Link href="/add-service">Add Your First Service</Link>
+                  </Button>
+                ) : (
+                  <Button onClick={clearFilters}>Clear All Filters</Button>
+                )}
               </div>
             )}
           </div>

@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Code, BarChart3, Briefcase, Users, Star, CheckCircle } from "lucide-react"
 
+
+
 export default function Home() {
   return (
     <div className="flex flex-col">
@@ -28,7 +30,7 @@ export default function Home() {
               </div>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
                 <Button asChild size="lg" className="gap-1">
-                  <Link href="/signup">
+                  <Link href="/auth/login">
                     Offer Your Services <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -53,9 +55,9 @@ export default function Home() {
             </div>
             <div className="flex items-center justify-center">
               <Image
-                src="/heroImage.webp"
-                width={650}
-                height={6500}
+                src="/homepage1.jpg?height=500&width=500"
+                width={500}
+                height={500}
                 alt="Hero Image"
                 className="rounded-lg object-cover"
               />
@@ -318,7 +320,11 @@ export default function Home() {
               <CardHeader>
                 <div className="flex items-center gap-4">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder.svg" alt="@user" />
+                    <AvatarImage
+                      src="/homepage2.jpg"
+                      alt="@user"
+                      className="h-full w-full object-cover rounded-full"
+                    />
                     <AvatarFallback>JD</AvatarFallback>
                   </Avatar>
                   <div>
@@ -347,8 +353,12 @@ export default function Home() {
               <CardHeader>
                 <div className="flex items-center gap-4">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder.svg" alt="@user" />
-                    <AvatarFallback>MS</AvatarFallback>
+                    <AvatarImage
+                      src="/homepage3.jpg"
+                      alt="@user"
+                      className="h-full w-full object-cover rounded-full"
+                    />
+                    <AvatarFallback>JD</AvatarFallback>
                   </Avatar>
                   <div>
                     <CardTitle className="text-base">Michael Smith</CardTitle>
@@ -376,8 +386,12 @@ export default function Home() {
               <CardHeader>
                 <div className="flex items-center gap-4">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder.svg" alt="@user" />
-                    <AvatarFallback>SP</AvatarFallback>
+                    <AvatarImage
+                      src="/homepage4.jpg"
+                      alt="@user"
+                      className="h-full w-full object-cover rounded-full"
+                    />
+                    <AvatarFallback>JD</AvatarFallback>
                   </Avatar>
                   <div>
                     <CardTitle className="text-base">Sarah Parker</CardTitle>
@@ -417,7 +431,7 @@ export default function Home() {
             </div>
             <div className="flex flex-col gap-2 min-[400px]:flex-row">
               <Button asChild size="lg" variant="secondary">
-                <Link href="/signup">Sign Up as Freelancer</Link>
+                <Link href="/auth/register">Sign Up as Freelancer</Link>
               </Button>
               <Button
                 asChild
