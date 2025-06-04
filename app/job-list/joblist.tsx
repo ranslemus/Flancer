@@ -15,7 +15,7 @@ import { useTheme } from "next-themes"
 import { Moon, Sun } from "lucide-react"
 
 // Mock data for demonstration
-const jobs = [
+const job = [
   {
     id: 1,
     title: "E-commerce Website Development",
@@ -176,7 +176,7 @@ export default function Component() {
 
         {/* Jobs Grid */}
         <div className="grid gap-6">
-          {jobs.map((job) => (
+          {job.map((job) => (
             <Card
               key={job.id}
               className="hover:shadow-md transition-shadow bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
@@ -282,7 +282,7 @@ export default function Component() {
         </div>
 
         {/* Empty State (if no jobs) */}
-        {jobs.length === 0 && (
+        {job.length === 0 && (
           <Card className="text-center py-12 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <CardContent>
               <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">

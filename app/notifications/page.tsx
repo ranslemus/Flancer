@@ -195,7 +195,7 @@ export default function NotificationsPage() {
         setUser(user)
         await fetchNotifications(user.id)
       } else {
-        window.location.href = "/login"
+        window.location.href = "/auth/login"
       }
     }
     getUser()
@@ -498,6 +498,13 @@ export default function NotificationsPage() {
       const userType = user.id === notification.metadata.client_id ? "client" : "freelancer"
       const otherUserId = userType === "client" ? notification.metadata.freelancer_id : notification.metadata.client_id
 
+      console.log("Agreement process started:", {
+        negotiationId,
+        proposedPrice,
+        userType,
+        otherUserId,
+      })
+
       // Validate the other user exists
       if (!otherUserId) {
         throw new Error("Missing other party's ID in notification metadata")
@@ -517,6 +524,7 @@ export default function NotificationsPage() {
       })
 
       if (agreementError) {
+        console.error("Agreement confirmation error:", agreementError)
         throw new Error(`Failed to record agreement: ${agreementError.message}`)
       }
 
@@ -528,6 +536,7 @@ export default function NotificationsPage() {
         .eq("negotiation_id", negotiationId)
 
       if (updateError) {
+        console.error("Negotiation update error:", updateError)
         throw new Error(`Failed to update negotiation: ${updateError.message}`)
       }
 
@@ -538,27 +547,35 @@ export default function NotificationsPage() {
         .eq("negotiation_id", negotiationId)
         .single()
 
-      if (fetchError || !negotiationData) {
-        throw new Error(`Failed to fetch negotiation data: ${fetchError?.message}`)
+      if (fetchError) {
+        console.error("Error fetching negotiation data:", fetchError)
+        throw new Error(`Failed to fetch negotiation: ${fetchError.message}`)
       }
 
-      const bothAgreed =
-        (userType === "client" ? true : negotiationData.client_agreed) &&
-        (userType === "freelancer" ? true : negotiationData.freelancer_agreed)
+      if (negotiationData) {
+        const bothAgreed =
+          (userType === "client" ? true : negotiationData.client_agreed) &&
+          (userType === "freelancer" ? true : negotiationData.freelancer_agreed)
 
-      if (bothAgreed) {
-        // Both parties agreed - update negotiation first
-        const { error: finalUpdateError } = await supabase
-          .from("price_negotiations")
-          .update({
-            status: "both_agreed",
-            final_agreed_price: proposedPrice,
-            agreement_timestamp: new Date().toISOString(),
-          })
-          .eq("negotiation_id", negotiationId)
+        console.log("Agreement status:", {
+          bothAgreed,
+          clientAgreed: userType === "client" ? true : negotiationData.client_agreed,
+          freelancerAgreed: userType === "freelancer" ? true : negotiationData.freelancer_agreed,
+        })
 
-        if (finalUpdateError) {
-          console.warn("Failed to update final negotiation status:", finalUpdateError)
+        if (bothAgreed) {
+          // Both parties agreed - update negotiation
+          await supabase
+            .from("price_negotiations")
+            .update({
+              status: "both_agreed",
+              final_agreed_price: proposedPrice,
+              agreement_timestamp: new Date().toISOString(),
+            })
+            .eq("negotiation_id", negotiationId)
+
+        if (updateError) {
+          console.warn("Failed to update final negotiation status:", updateError)
           // Don't fail the whole process for this
         }
 
