@@ -216,7 +216,7 @@ export function EditProfile({ userId }: EditProfileProps) {
       setUploadProgress(75)
 
       // Store detailed error information for debugging
-      setDebugInfo((prev) => ({
+      setDebugInfo((prev: any) => ({
         ...prev,
         uploadAttempt: {
           fileName,
@@ -311,7 +311,7 @@ export function EditProfile({ userId }: EditProfileProps) {
       }
     } catch (error) {
       console.error("Storage test error:", error)
-      setDebugInfo((prev) => ({ ...prev, storageTestError: error }))
+      setDebugInfo((prev: any) => ({ ...prev, storageTestError: error }))
       setStorageError("Failed to test storage setup")
       setStorageWorking(false)
     } finally {
@@ -350,7 +350,7 @@ export function EditProfile({ userId }: EditProfileProps) {
       }
     } catch (error) {
       console.error("Test upload error:", error)
-      setDebugInfo((prev) => ({ ...prev, testUploadError: error }))
+      setDebugInfo((prev: any) => ({ ...prev, testUploadError: error }))
       setStorageWorking(false)
     } finally {
       setIsUploading(false)
@@ -418,14 +418,6 @@ export function EditProfile({ userId }: EditProfileProps) {
     } finally {
       setSaving(false)
     }
-  }
-
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center p-6">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
   }
 
   return (
