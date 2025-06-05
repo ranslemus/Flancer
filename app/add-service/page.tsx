@@ -64,16 +64,17 @@ export default function AddServicePage() {
 
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
 
-      if (user) {
-        setUser(user)
-        console.log("Current user:", user.id)
+        if (user) {
+          setUser(user)
+          console.log("Current user:", user.id)
 
-        // Verify user is a freelancer
-        const { data: clientData } = await supabase.from("client").select("role").eq("user_id", user.id).single()
+          // Verify user is a freelancer
+          const { data: clientData } = await supabase.from("client").select("role").eq("user_id", user.id).single()
 
           if (clientData?.role !== "freelancer") {
             router.push("/dashboard")
@@ -239,7 +240,6 @@ export default function AddServicePage() {
               ...prev,
               category: [...prev.category, ...newCategories],
             }))
-          } else {
           }
         }
       } catch (parseError) {
@@ -253,6 +253,7 @@ export default function AddServicePage() {
       setCategorizingAI(false)
     }
   }
+
   const handleInputChange = (field: keyof ServiceFormData, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -777,4 +778,3 @@ export default function AddServicePage() {
     </div>
   )
 }
-  
