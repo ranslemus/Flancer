@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Briefcase, Calendar, CheckCircle, DollarSign, PlusCircle, Star } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
@@ -16,7 +16,7 @@ interface ClientData {
   full_name: string
   role: "client" | "freelancer"
   email: string
-  phone?: string
+  profile_picture_url?: string
   created_at: string
 }
 
@@ -36,7 +36,7 @@ interface ServiceData {
   service_name: string
   price_range: string
   service_description: string
-  service_pictures?: string
+  image_url?: string
 }
 
 interface JobData {
@@ -59,6 +59,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [clientJobs, setClientJobs] = useState<JobData[]>([])
   const [freelancerJobs, setFreelancerJobs] = useState<JobData[]>([])
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null)
 
   const supabase = createClientComponentClient()
 
@@ -90,6 +91,7 @@ export default function Dashboard() {
       }
 
       setClientData(client)
+      setProfilePictureUrl(client.profile_picture_url || null)
 
       if (client.role === "freelancer") {
         await fetchFreelancerData(userId)
@@ -248,6 +250,7 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16 border-4 border-background">
+              <AvatarImage src={profilePictureUrl || "/placeholder.svg"} alt={clientData.full_name} />
               <AvatarFallback>{clientData.full_name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div>
@@ -381,6 +384,7 @@ export default function Dashboard() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
                       <Avatar className="h-20 w-20">
+                        <AvatarImage src={profilePictureUrl || "/placeholder.svg"} alt={clientData.full_name} />
                         <AvatarFallback>{clientData.full_name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div>
@@ -426,10 +430,10 @@ export default function Dashboard() {
                           <h5 className="font-medium text-green-700">{serviceData.service_name}</h5>
                           <p className="text-sm text-muted-foreground">{serviceData.service_description}</p>
                           <p className="text-sm font-medium mt-1">Price Range: ${serviceData.price_range}</p>
-                          {serviceData.service_pictures && (
+                          {serviceData.image_url && (
                             <div className="mt-2">
                               <img
-                                src={serviceData.service_pictures || "/placeholder.svg"}
+                                src={serviceData.image_url || "/placeholder.svg"}
                                 alt={serviceData.service_name}
                                 className="w-full h-32 object-cover rounded"
                                 onError={(e) => {

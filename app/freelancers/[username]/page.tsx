@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
-import { Calendar, ExternalLink, Github, Globe, Linkedin, Mail, MapPin, Star, Twitter } from 'lucide-react'
+import { Calendar, ExternalLink, Github, Globe, Linkedin, Mail, MapPin, Star, Twitter } from "lucide-react"
 
 // Mock user data - in a real app, this would come from your database based on the username
 const userData = {
@@ -19,6 +19,7 @@ const userData = {
   location: "San Francisco, CA",
   email: "alex@example.com",
   bio: "Self-taught developer with a passion for creating clean, user-friendly interfaces. Specializing in React and Next.js development.",
+  profile_picture_url: "/placeholder.svg?height=96&width=96", // Updated to use profile_picture_url
   skills: [
     { name: "React", level: 85 },
     { name: "Next.js", level: 75 },
@@ -130,7 +131,7 @@ export default function FreelancerProfilePage({ params }) {
             <CardHeader className="text-center">
               <div className="flex justify-center">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src="/placeholder.svg" alt={userData.name} />
+                  <AvatarImage src={userData.profile_picture_url || "/placeholder.svg"} alt={userData.name} />
                   <AvatarFallback>
                     {userData.name
                       .split(" ")
@@ -150,7 +151,9 @@ export default function FreelancerProfilePage({ params }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center text-sm">
                   <Star className="mr-1 h-4 w-4 text-yellow-500" />
-                  <span>{userData.rating} ({userData.totalReviews} reviews)</span>
+                  <span>
+                    {userData.rating} ({userData.totalReviews} reviews)
+                  </span>
                 </div>
                 <div className="text-sm text-muted-foreground">Member since {userData.memberSince}</div>
               </div>
